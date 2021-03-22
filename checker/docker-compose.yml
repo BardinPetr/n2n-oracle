@@ -1,0 +1,47 @@
+version: '3.9'
+
+services:
+    n2n-oracle:
+        build: .
+        
+        image: registry.gitlab.com/onti-fintech/onti-2021-fintech/fintech2021002/n2n-oracle/ftchecker-final2021-n2n-oracle:latest
+
+        volumes:
+            # Docker.
+            - /var/run/docker.sock:/var/run/docker.sock
+            
+            # Logs.
+            - ./logs:/home/n2n-oracle/logs
+
+            # Solution.
+            - ../:/home/n2n-oracle/solution
+
+            # Solution data.
+            - /mnt/solution-data:/home/n2n-oracle/solution-data
+            - ./tests/conftest.py:/home/n2n-oracle/python/tests/conftest.py
+
+        environment:
+            # Logging.
+            - LOG_LEVEL=$LOG_LEVEL
+
+            # Debug.
+            - LOCAL=$LOCAL
+        
+        command: 
+            - pytest 
+            - --disable-warnings
+            - --force-testdox
+            - --tb
+            - "short"
+            - --color
+            - "yes"
+            - --code-highlight
+            - "yes"
+            - --show-capture
+            - "no"
+            - python/tests/
+
+
+networks:
+  default:
+      name: fintech-network

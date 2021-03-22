@@ -8,3 +8,4 @@ services:
     env_file: .env
     volumes:
         - ${ORACLE_DATA}/db:/data
+    command: /deployment/run.sh oracle

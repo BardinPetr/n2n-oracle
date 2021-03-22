@@ -5,3 +5,7 @@ Dockerfile
 .dockerignore
 .gitlab-ci.yml
 .env.example
+solc*
+solcx/**
+checker
+tasks*
