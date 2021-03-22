@@ -46,7 +46,12 @@ def deploy(contract, name, constructor, network="LEFT", retry=False):
 
 
 def main():
-    solcx.install_solc(SOLCV)
+    while 1:
+        try:
+            solcx.install_solc(SOLCV)
+            break
+        except:
+            pass
     solcx.set_solc_version(SOLCV)
     base_dir = "src/contracts/"
     contracts = [("Validators Set", "ValidatorSet.sol"), ("Bridge", "BridgeSide.sol")]
