@@ -18,6 +18,7 @@ services:
 
             # Solution data.
             - /mnt/solution-data:/home/n2n-oracle/solution-data
+            - ./tests/conftest.py:/home/n2n-oracle/python/tests/conftest.py
 
         environment:
             # Logging.
