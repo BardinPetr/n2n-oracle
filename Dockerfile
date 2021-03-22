@@ -1,5 +1,6 @@
 FROM python:3.9-alpine
 
-COPY . .
+RUN apk add --no-cache --virtual .build-deps gcc musl-dev
+RUN pip install web3
 
-CMD "echo" "Hello world!"
+COPY . .
