@@ -74,14 +74,20 @@ contract BridgeSide is DATAPACK {
         _validator_set = ValidatorSet(addr);
     }
 
+    bool private inited;
     function addLiquidity() public payable only_for_owner {
+        require(!_side, "!right_side"); // used only on right (_side == False) side, where some initiall ethers come here through this method
+        require(!inited, "!!inited"); // must be called only once
         require(msg.value > 0, "!value>0");
         _liquidity += msg.value;
+        inited = true;
     }
-
     function updateLiquidityLimit(uint256 newlimit) public only_for_owner {
-        opposite_side_balance = newlimit;
+        require(_side, "!left_side"); // used only on left (_side == True) side, where is no ethers initially
+        require(!inited, "!!inited"); // must be called only once
+        opposite_side_balance = newlimit; // and it is assumed that newlimit is the same amount as initial balance of the right contract
         _liquidity = newlimit;
+        inited = true;
     }
 
     function getLiquidityLimit() public view returns (uint256) {
