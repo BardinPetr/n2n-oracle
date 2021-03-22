@@ -12,11 +12,6 @@ PRIVKEY = os.getenv("PRIVKEY")
 MAIN_ADDRESS = to_address(PRIVKEY)
 
 SOLCV = os.getenv("SOLC_VERSION", "0.7.6")
-SOLCP = os.getenv("SOLC_PATH", os.getcwd() + "/solcx")
-try:
-    os.makedirs(SOLCP)
-except:
-    pass
 
 cnt = 0
 
@@ -27,12 +22,12 @@ def log(net, data):
     print(f"#{cnt} [{net}]", data)
 
 
-def deploy(contract, name, network="LEFT", retry=False):
+def deploy(contract, name, constructor, network="LEFT", retry=False):
     web3 = Web3(HTTPProvider(os.getenv(network + "_RPCURL")))
 
     tx = web3.eth \
         .contract(bytecode=contract["bin"], abi=contract["abi"]) \
-        .constructor(os.getenv("VALIDATORS").split(), int(os.getenv("THRESHOLD"))) \
+        .constructor(*constructor) \
         .buildTransaction({'gasPrice': web3.eth.gasPrice if retry else int(os.getenv(network + "_GASPRICE")),
                            'nonce': web3.eth.getTransactionCount(MAIN_ADDRESS),
                            'from': MAIN_ADDRESS})
@@ -46,13 +41,13 @@ def deploy(contract, name, network="LEFT", retry=False):
         return txr
     except ValueError as ex:
         if ex.args[0]["message"] == 'transaction underpriced':
-            return deploy(contract, name, network, retry=True)
+            return deploy(contract, name, constructor, network, retry=True)
     return None
 
 
 def main():
-    solcx.install_solc(SOLCV, solcx_binary_path=SOLCP)
-    solcx.set_solc_version(SOLCV, solcx_binary_path=SOLCP)
+    solcx.install_solc(SOLCV)
+    solcx.set_solc_version(SOLCV)
     base_dir = "src/contracts/"
     contracts = [("Validators Set", "ValidatorSet.sol"), ("Bridge", "BridgeSide.sol")]
     res = solcx.compile_files([base_dir + i[1] for i in contracts],
@@ -60,13 +55,20 @@ def main():
                               optimize_runs=200)
 
     nets = ["LEFT", "RIGHT"]
-    txrs = []
-    for net in nets:
-        for name, file in contracts:
-            txrs.append(deploy(res.get(f"{base_dir}{file}:{file.removesuffix('.sol')}"), name, net))
+    br_blocks = []
+    for i in nets:
+        val = deploy(res.get(f"{base_dir}{contracts[0][1]}:{contracts[0][1].removesuffix('.sol')}"),
+                     contracts[0][0],
+                     (os.getenv("VALIDATORS").split(), int(os.getenv("THRESHOLD"))),
+                     i)['contractAddress']
+        br = deploy(res.get(f"{base_dir}{contracts[1][1]}:{contracts[1][1].removesuffix('.sol')}"),
+                    contracts[1][0],
+                    (val,),
+                    i)
+        br_blocks.append(br['blockHash'].hex())
 
-    for i in range(len(nets)):
-        log(nets[i], f"Bridge deployed at block {txrs[len(nets) * i + 1]['blockHash'].hex()}")
+    for i, j in zip(br_blocks, nets):
+        log(j, f"Bridge deployed at block {i}")
 
 
 if __name__ == '__main__':
