@@ -65,7 +65,8 @@ def main():
                     contracts[1][0],
                     (val,),
                     i)
-        br_blocks.append(br['blockHash'].hex())
+
+        br_blocks.append(br['blockNumber'])
 
     for i, j in zip(br_blocks, nets):
         log(j, f"Bridge deployed at block {i}")
