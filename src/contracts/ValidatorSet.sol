@@ -67,7 +67,7 @@ contract ValidatorSet is ValidatorsPool {
     }
 
     function removeValidator(address addr) public only_for_owner {
-        require(getValidators().length > 2, "!validators>2");
+        require(getValidators().length - 1 >= _threshold, "!validators?");
         _removeValidator(addr);
     }
 
