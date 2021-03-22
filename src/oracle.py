@@ -6,13 +6,11 @@ import solcx
 from web3 import Web3, HTTPProvider
 
 from utils.contract_wrapper import ContractWrapper
-from utils.tools import to_address, get_ABI
+from utils.tools import to_address, get_ABI, install_solc
 
 dotenv.load_dotenv(verbose=True, override=True)
 
-SOLCV = os.getenv("SOLC_VERSION", "0.7.6")
-solcx.install_solc(SOLCV)
-solcx.set_solc_version(SOLCV)
+install_solc()
 
 # load and store database
 # nonces = {}

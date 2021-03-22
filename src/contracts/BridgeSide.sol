@@ -10,6 +10,8 @@ contract DATAPACK { // used to incapsulate this data
     mapping(bytes32 => PA) private _pending_actions;
     mapping(bytes32 => bool) private completed;
 
+    mapping(address => uint256) reserved_amount;
+
     function isAlreadyConfirmed(bytes32 action_id, address confirmator) public view returns (bool) { // <---------- public
         if (completed[action_id])
             return true;
@@ -89,7 +91,13 @@ contract BridgeSide is DATAPACK {
         {
             require(address(this).balance >= amount, "!balance>=amount");
             require(recipient.send(amount), "!send");
-            _liquidity -= amount;
+            if(reserved_amount[recipient] > 0) {
+                _liquidity += amount;
+                reserved_amount[recipient] = 0;
+            }
+            else {
+                _liquidity = min(_liquidity, address(this).balance);
+            }
             _markCompleted(id);
         }
     }
@@ -98,6 +106,7 @@ contract BridgeSide is DATAPACK {
         require(msg.value > 0, "!value>0");
         require(msg.value <= _liquidity, "!value<=liquidity");
         _liquidity -= msg.value;
+        reserved_amount[msg.sender] = msg.value;
         emit bridgeActionInitiated(msg.sender, msg.value);
     }
 }
