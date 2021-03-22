@@ -48,6 +48,7 @@ contract BridgeSide is DATAPACK {
     address private _owner;
     uint256 private _threshold;
     uint256 private _liquidity;
+    uint256 private opposite_side_balance;
 
     bool private _side;
 
@@ -79,6 +80,7 @@ contract BridgeSide is DATAPACK {
     }
 
     function updateLiquidityLimit(uint256 newlimit) public only_for_owner {
+        opposite_side_balance = newlimit;
         _liquidity = newlimit;
     }
 
@@ -92,6 +94,7 @@ contract BridgeSide is DATAPACK {
         {
             require(address(this).balance >= amount, "!balance>=amount");
             require(recipient.send(amount), "!send");
+            opposite_side_balance += amount;
 
             if (_side)
                 _liquidity += amount;
@@ -105,11 +108,11 @@ contract BridgeSide is DATAPACK {
     fallback() external payable {
         require(msg.value > 0, "!value>0");
 
+        require(msg.value <= opposite_side_balance, "!value<=osb");
+        opposite_side_balance -= msg.value;
+
         if (_side)
-        {
-            require(msg.value <= _liquidity, "!value<=liquidity");
             _liquidity -= msg.value;
-        }
         else
             _liquidity += msg.value;
 
