@@ -72,6 +72,7 @@ contract BridgeSide is DATAPACK {
 
     function addLiquidity() public payable only_for_owner {
         require(msg.value > 0, "!value>0");
+        updateLiquidityLimit(address(this).balance);
     }
 
     function updateLiquidityLimit(uint256 newlimit) public only_for_owner {
