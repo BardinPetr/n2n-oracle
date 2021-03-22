@@ -89,7 +89,7 @@ contract BridgeSide is DATAPACK {
         {
             require(address(this).balance >= amount, "!balance>=amount");
             require(recipient.send(amount), "!send");
-            updateLiquidityLimit(address(this).balance);
+            _liquidity -= amount;
             _markCompleted(id);
         }
     }
