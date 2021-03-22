@@ -2,7 +2,7 @@ pragma solidity >=0.7.4 <=0.7.6;
 
 import "./ValidatorSet.sol";
 
-contract DATAPACK {
+contract DATAPACK { // used to incapsulate this data
     struct PA {
         address[] confirmators;
         mapping(address => bool) is_confirmed_by;
