@@ -1,8 +1,9 @@
+import json
 import os
 import signal
+import time
 
 import dotenv
-import solcx
 from web3 import Web3, HTTPProvider
 
 from utils.contract_wrapper import ContractWrapper
@@ -13,24 +14,27 @@ dotenv.load_dotenv(verbose=True, override=True)
 install_solc()
 
 # load and store database
-# nonces = {}
+processed = {}
 mount_point = os.getenv("ORACLE_DATA")
 try:
     with open(f"{mount_point}/db.json", "r") as f:
-        # nonces = json.load(f)
-        pass
+        processed = json.load(f)
 except:
     pass
 
 
 def exit_gracefully(*args):
-    with open(f"{mount_point}/db.json", "w") as f:
-        # json.dump(nonces, f)
+    try:
+        os.mkdir(mount_point)
+    except:
         pass
+    with open(f"{mount_point}/db.json", "w") as f:
+        json.dump(processed, f)
+    exit(0)
 
 
-signal.signal(signal.SIGINT, exit_gracefully)
-signal.signal(signal.SIGTERM, exit_gracefully)
+for i in [signal.SIGINT, signal.SIGTERM]:
+    signal.signal(i, exit_gracefully)
 
 # Config
 priv_key = os.getenv("PRIVKEY")
@@ -51,24 +55,25 @@ contract = [
 ]
 
 
-def main():
-    # transfer initial balances
-    traced_balance = [web3[i].eth.getBalance(contract_addr[i]) for i in range(2)]
-
+def update(flt, startup=False):
     for i in range(2):
+        logs = flt[i].get_all_entries() if startup else flt[i].get_new_entries()
         j = (i + 1) % 2
-        if traced_balance[i] != contract[j].getLiquidityLimit():
-            contract[j].updateLiquidityLimit(traced_balance[i])
+        for e in logs:
+            data = (e['args']['recipient'], e['args']['amount'], int.from_bytes(e['transactionHash'], 'big'))
+            tid = Web3.solidityKeccak(['address', 'uint256', 'uint32'], data)
+            xid = tid.hex()
+            if xid not in processed:
+                contract[j].commit(*data[:-1], tid)
+                processed[xid] = int(time.time())
 
-    # main loop
+
+def main():
+    flt = [contract[i].events.bridgeActionInitiated.createFilter(fromBlock=sb[i]) for i in range(2)]
+    update(flt, startup=True)
+
     while True:
-        for i in range(2):
-            balance = web3[i].eth.getBalance(contract_addr[i])
-            if balance != traced_balance[i]:
-                traced_balance[i] = balance
-
-                j = (i + 1) % 2
-                traced_balance[j].updateLiquidityLimit(balance)
+        update(flt)
 
 
 if __name__ == '__main__':
