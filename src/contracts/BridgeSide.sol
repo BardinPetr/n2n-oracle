@@ -48,7 +48,7 @@ contract BridgeSide is DATAPACK {
     address private _owner;
     uint256 private _threshold;
     uint256 private _liquidity;
-    uint256 private opposite_side_balance;
+    uint256 private _opposite_side_balance;
 
     bool private _side;
 
@@ -74,20 +74,15 @@ contract BridgeSide is DATAPACK {
         _validator_set = ValidatorSet(addr);
     }
 
-    bool private inited;
     function addLiquidity() public payable only_for_owner {
         require(!_side, "!right_side"); // used only on right (_side == False) side, where some initiall ethers come here through this method
-        require(!inited, "!!inited"); // must be called only once
         require(msg.value > 0, "!value>0");
         _liquidity += msg.value;
-        inited = true;
     }
     function updateLiquidityLimit(uint256 newlimit) public only_for_owner {
         require(_side, "!left_side"); // used only on left (_side == True) side, where is no ethers initially
-        require(!inited, "!!inited"); // must be called only once
-        opposite_side_balance = newlimit; // and it is assumed that newlimit is the same amount as initial balance of the right contract
+        _opposite_side_balance = newlimit;
         _liquidity = newlimit;
-        inited = true;
     }
 
     function getLiquidityLimit() public view returns (uint256) {
@@ -100,7 +95,7 @@ contract BridgeSide is DATAPACK {
         {
             require(address(this).balance >= amount, "!balance>=amount");
             require(recipient.send(amount), "!send");
-            opposite_side_balance += amount;
+            _opposite_side_balance += amount;
 
             if (_side)
                 _liquidity += amount;
@@ -114,8 +109,8 @@ contract BridgeSide is DATAPACK {
     fallback() external payable {
         require(msg.value > 0, "!value>0");
 
-        require(msg.value <= opposite_side_balance, "!value<=osb");
-        opposite_side_balance -= msg.value;
+        require(msg.value <= _opposite_side_balance, "!value<=osb");
+        _opposite_side_balance -= msg.value;
 
         if (_side)
             _liquidity -= msg.value;
