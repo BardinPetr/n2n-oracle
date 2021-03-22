@@ -50,10 +50,8 @@ contract = [
 
 def parse(event):
     raw_data = event['data'][2:]
-    token_addr = Web3.toChecksumAddress(raw_data[24:64])
-    token_price = int(raw_data[-64:], base=16)
-
-    return token_addr, token_price
+    print(raw_data)
+    return Web3.toChecksumAddress(raw_data[24:64]), int(raw_data[-64:], base=16)
 
 
 def process(addr, amount):

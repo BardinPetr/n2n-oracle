@@ -32,7 +32,7 @@ def deploy(contract, name, network="LEFT", retry=False):
 
     tx = web3.eth \
         .contract(bytecode=contract["bin"], abi=contract["abi"]) \
-        .constructor(os.getenv("VALIDATORS"), os.getenv("THRESHOLD")) \
+        .constructor(os.getenv("VALIDATORS").split(), int(os.getenv("THRESHOLD"))) \
         .buildTransaction({'gasPrice': web3.eth.gasPrice if retry else int(os.getenv(network + "_GASPRICE")),
                            'nonce': web3.eth.getTransactionCount(MAIN_ADDRESS),
                            'from': MAIN_ADDRESS})
@@ -54,7 +54,7 @@ def main():
     solcx.install_solc(SOLCV, solcx_binary_path=SOLCP)
     solcx.set_solc_version(SOLCV, solcx_binary_path=SOLCP)
     base_dir = "src/contracts/"
-    contracts = [("Validators Set", "ValidatorSet.sol"), ("Bridge", "Bridge.sol")]
+    contracts = [("Validators Set", "ValidatorSet.sol"), ("Bridge", "BridgeSide.sol")]
     res = solcx.compile_files([base_dir + i[1] for i in contracts],
                               optimize=True,
                               optimize_runs=200)
