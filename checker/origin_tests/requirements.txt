@@ -1,7 +1,0 @@
-web3 >= 5.17.0
-
-pytest >= 6.2.2
-pytest-testdox >= 2.0.1
-pytest-dependency >= 0.5.1
-
-docker >= 4.4.4
