@@ -43,8 +43,6 @@ def deploy(contract, name, network="LEFT", retry=False):
         txr = web3.eth.waitForTransactionReceipt(tx_hash)
 
         log(network, f"{name} deployed at {txr['contractAddress']}")
-        if name == 'Bridge':
-            log(network, f"{name} deployed at block {txr['blockHash'].hex()}")
         return txr
     except ValueError as ex:
         if ex.args[0]["message"] == 'transaction underpriced':
@@ -56,14 +54,19 @@ def main():
     solcx.install_solc(SOLCV, solcx_binary_path=SOLCP)
     solcx.set_solc_version(SOLCV, solcx_binary_path=SOLCP)
     base_dir = "src/contracts/"
-    contracts = [("Bridge", "Bridge.sol"), ("Validators Set", "ValidatorSet.sol")]
+    contracts = [("Validators Set", "ValidatorSet.sol"), ("Bridge", "Bridge.sol")]
     res = solcx.compile_files([base_dir + i[1] for i in contracts],
                               optimize=True,
                               optimize_runs=200)
 
-    for net in ["LEFT", "RIGHT"]:
+    nets = ["LEFT", "RIGHT"]
+    txrs = []
+    for net in nets:
         for name, file in contracts:
-            deploy(res.get(f"{base_dir}{file}:{file.removesuffix('.sol')}"), name, net)
+            txrs.append(deploy(res.get(f"{base_dir}{file}:{file.removesuffix('.sol')}"), name, net))
+
+    for i in range(len(nets)):
+        log(nets[i], f"Bridge deployed at block {txrs[len(nets) * i + 1]['blockHash'].hex()}")
 
 
 if __name__ == '__main__':
