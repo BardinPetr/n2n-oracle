@@ -7,4 +7,4 @@ services:
     image: n2n-oracle:latest
     env_file: .env
     volumes:
-        - ${ORACLE_DATA}/redis:/data
+        - ${ORACLE_DATA}/db:/data
