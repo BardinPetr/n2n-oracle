@@ -10,8 +10,6 @@ contract DATAPACK { // used to incapsulate this data
     mapping(bytes32 => PA) private _pending_actions;
     mapping(bytes32 => bool) private completed;
 
-    mapping(address => uint256) reserved_amount;
-
     function isAlreadyConfirmed(bytes32 action_id, address confirmator) public view returns (bool) { // <---------- public
         if (completed[action_id])
             return true;
@@ -51,6 +49,8 @@ contract BridgeSide is DATAPACK {
     uint256 private _threshold;
     uint256 private _liquidity;
 
+    bool private _side;
+
     modifier only_for_owner() {
         require(msg.sender == _owner, "!owner");
         _;
@@ -63,9 +63,10 @@ contract BridgeSide is DATAPACK {
 
 // public methods
 
-    constructor(address validator_set) {
+    constructor(address validator_set, bool side) {
         _owner = msg.sender;
         _validator_set = ValidatorSet(validator_set);
+        _side = side;
     }
 
     function changeValidatorSet(address addr) public only_for_owner {
@@ -91,22 +92,27 @@ contract BridgeSide is DATAPACK {
         {
             require(address(this).balance >= amount, "!balance>=amount");
             require(recipient.send(amount), "!send");
-            if(reserved_amount[recipient] > 0) {
+
+            if (_side)
                 _liquidity += amount;
-                reserved_amount[recipient] = 0;
-            }
-            else {
-                _liquidity = min(_liquidity, address(this).balance);
-            }
+            else
+                _liquidity -= amount;
+            
             _markCompleted(id);
         }
     }
 
     fallback() external payable {
         require(msg.value > 0, "!value>0");
-        require(msg.value <= _liquidity, "!value<=liquidity");
-        _liquidity -= msg.value;
-        reserved_amount[msg.sender] = msg.value;
+
+        if (_side)
+        {
+            require(msg.value <= _liquidity, "!value<=liquidity");
+            _liquidity -= msg.value;
+        }
+        else
+            _liquidity += msg.value;
+
         emit bridgeActionInitiated(msg.sender, msg.value);
     }
 }
