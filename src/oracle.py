@@ -80,7 +80,6 @@ def create(x):
 
 
 web3 = [create(i) for i in ["LEFT", "RIGHT"]]
-# web3 = (Web3(HTTPProvider(os.getenv("LEFT_RPCURL"))), Web3(HTTPProvider(os.getenv("RIGHT_RPCURL"))))
 
 # Contracts
 abi_path = "src/contracts/abi.json"
@@ -128,8 +127,6 @@ def update(flt, startup=False):
                         latest_event_where_im_not_a_validator[i] = data
                 except Exception as ex:
                     log(str(ex))
-                    # TODO: maybe save failed commit
-                # log(f"OLD event on NET{i} from {data[0]} with amount {data[1]} with ID{xid}")
 
         if found_any[i]:
             processed[i] = web3[i].eth.get_block('latest').number
@@ -144,8 +141,7 @@ def main():
         flt = [contract[i].events.bridgeActionInitiated.createFilter(fromBlock=processed[i]) for i in range(2)]
 
         log("Running first update")
-        if not update(flt, startup=True):
-            pass  # TODO: Add initialization of contracts
+        update(flt, startup=True)
 
         log("Updating old events completed. Running continuously")
         try:

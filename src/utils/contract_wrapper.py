@@ -58,15 +58,7 @@ class ContractWrapper:
                                     'data': contract.encodeABI(fn_name=name, args=args, kwargs=kwargs)
                                 }
 
-                                results = None
-                                try:
-                                    # this line will throw detailed exception with revert reason
-                                    # in case of fault (an instance of ContractLogicError)
-                                    results = w3.eth.call(tx)
-                                except ValueError as ex:
-                                    if 'insufficient' in ex.args[0]['message']:
-                                        pass
-
+                                results = w3.eth.call(tx)
                                 tx['gas'] = w3.eth.estimateGas(tx)
                                 tx['gas'] *= (1 if tx['gas'] * tx['gasPrice'] >= w3.eth.get_balance(user_acc) else 2)
 
