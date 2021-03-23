@@ -9,6 +9,8 @@ from web3 import Web3, HTTPProvider
 from utils.contract_wrapper import ContractWrapper
 from utils.tools import to_address, get_ABI, install_solc
 
+from web3.exceptions import ContractLogicError
+
 dotenv.load_dotenv(verbose=True, override=True)
 install_solc()
 
@@ -60,11 +62,25 @@ def log(*args):
         print(*args)
 
 
+latest_event_where_im_not_a_validator = (None, None)
+
 def update(flt, startup=False):
     found_any = False
     for i in range(2):
-        logs = flt[i].get_all_entries() if startup else flt[i].get_new_entries()
         j = (i + 1) % 2
+
+        if latest_event_where_im_not_a_validator[i] not is None:
+            xid = latest_event_where_im_not_a_validator[i][2]
+            try:
+                contract[j].commit(*latest_event_where_im_not_a_validator[i])
+                processed[xid] = int(time.time())
+                latest_event_where_im_not_a_validator[i] = None
+            except ContractLogicError as e:
+                if str(e).find("!validator") == -1:
+                    latest_event_where_im_not_a_validator[i] = None
+            return False
+        
+        logs = flt[i].get_all_entries() if startup else flt[i].get_new_entries()
         for e in logs:
             data = (e['args']['recipient'], e['args']['amount'], int.from_bytes(e['transactionHash'], 'big'))
             tid = Web3.solidityKeccak(['address', 'uint256', 'uint32'], data)
@@ -75,9 +91,11 @@ def update(flt, startup=False):
                 try:
                     contract[j].commit(*data[:-1], xid)
                     processed[xid] = int(time.time())
-                except Exception:
+                except ContractLogicError as e:
+                    if str(e).find("!validator") != -1:
+                        latest_event_where_im_not_a_validator[i] = (*data[:-1], xid)
                     print(f"Failed for {xid}")
-                    pass  # TODO: save failed commit
+                    # TODO: save failed commit
             else:
                 log(f"OLD event on NET{i} from {data[0]} with amount {data[1]} with ID{xid}")
     return found_any

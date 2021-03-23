@@ -79,6 +79,7 @@ contract BridgeSide is DATAPACK {
         require(msg.value > 0, "!value>0");
         _liquidity += msg.value;
     }
+    
     function updateLiquidityLimit(uint256 newlimit) public only_for_owner {
         require(_side, "!left_side"); // used only on left (_side == True) side, where is no ethers initially
         _opposite_side_balance = newlimit;
