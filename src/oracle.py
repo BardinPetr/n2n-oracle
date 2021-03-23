@@ -46,21 +46,10 @@ contract_addr = (os.getenv("LEFT_ADDRESS"), os.getenv("RIGHT_ADDRESS"))
 gas = (int(os.getenv("LEFT_GASPRICE")), int(os.getenv("RIGHT_GASPRICE")))
 sb = (int(os.getenv("LEFT_START_BLOCK")), int(os.getenv("RIGHT_START_BLOCK")))
 
-
-def create(x):
-    w = Web3(HTTPProvider(os.getenv(x + "_RPCURL")))
-    w.middleware_onion.inject(geth_poa_middleware, layer=0)
-    return w
-
-
-web3 = [create(i) for i in ["LEFT", "RIGHT"]]
-# web3 = (Web3(HTTPProvider(os.getenv("LEFT_RPCURL"))), Web3(HTTPProvider(os.getenv("RIGHT_RPCURL"))))
-
-
 # load and store database
 processed = {
-    0 : sb[0],
-    1 : sb[1]
+    0: sb[0],
+    1: sb[1]
 }
 try:
     with open(f"{mount_point}/db.json", "r") as f:
@@ -68,29 +57,20 @@ try:
 except:
     pass
 
-log(str(processed))
 
 def exit_gracefully(*args):
+    global processed
     log(f"Saving {len(processed.keys())} items")
     try:
-        for i in range(2):
-            processed = {
-                i : web3[i]
-            }
+        processed = {i: web3[i].eth.get_block('latest').number for i in range(2)}
         with open(f"{mount_point}/db.json", "w") as f:
             json.dump(processed, f)
     finally:
         sys.exit(0)
 
 
-
 for i in [signal.SIGINT, signal.SIGTERM]:
     signal.signal(i, exit_gracefully)
-
-
-contract_addr = (os.getenv("LEFT_ADDRESS"), os.getenv("RIGHT_ADDRESS"))
-gas = (int(os.getenv("LEFT_GASPRICE")), int(os.getenv("RIGHT_GASPRICE")))
-sb = (int(os.getenv("LEFT_START_BLOCK")), int(os.getenv("RIGHT_START_BLOCK")))
 
 
 def create(x):
@@ -119,6 +99,7 @@ contract = [
 
 latest_event_where_im_not_a_validator = [None, None]
 
+
 def update(flt, startup=False):
     found_any = False
     for i in range(2):
@@ -136,19 +117,21 @@ def update(flt, startup=False):
         logs = flt[i].get_all_entries() if startup else flt[i].get_new_entries()
 
         for e in logs:
-            data = (e['args']['recipient'], e['args']['amount'], e['transactionHash'].hex())
+            th = e['transactionHash'].hex()
+            data = (e['args']['recipient'], e['args']['amount'], th)
             found_any = True
 
-            #log(f"NEW event on NET{i} from {data[0]} with amount {data[1]} with ID{xid}")
+            log(f"NEW event on NET{i} from {data[0]} with amount {data[1]} with {th}")
             try:
                 contract[j].commit(*data)
+                log(f"Commit TX hash {th}")
             except ContractLogicError as e:
                 if str(e).find("!validator") != -1:
                     latest_event_where_im_not_a_validator[i] = data
             except Exception as ex:
                 log(str(ex))
                 # TODO: maybe save failed commit
-            #log(f"OLD event on NET{i} from {data[0]} with amount {data[1]} with ID{xid}")
+            # log(f"OLD event on NET{i} from {data[0]} with amount {data[1]} with ID{xid}")
 
     return found_any
 
