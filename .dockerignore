@@ -4,8 +4,10 @@ Dockerfile
 .gitignore
 .dockerignore
 .gitlab-ci.yml
+.env
 .env.example
 solc*
 solcx/**
 checker
-tasks*
+tasks-first-iter
+second-iter-task
