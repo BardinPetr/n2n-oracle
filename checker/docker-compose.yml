@@ -31,8 +31,8 @@ services:
             - pytest 
             - --disable-warnings
             - --force-testdox
-            - --tb
-            - "short"
+#            - --tb
+#            - "short"
             - --color
             - "yes"
             - --code-highlight
