@@ -105,30 +105,39 @@ contract BridgeSide is DATAPACK {
         _liquidity = newlimit;
     }
 
-    function enableRobustMode() external {
-        _robust_mode = true;
-    }
-
-    function registerCommit(address recipient, uint256 amount, bytes32 id, uint256 r, uint256 s, uint8 v) external {
-
-    }
-
-    function getTransferDetails(bytes32 id) external {
-
-    }
-
     function getLiquidityLimit() public view returns (uint256) {
         return _liquidity;
     }
 
-    function commit(address payable recipient, uint256 amount, bytes32 id) public only_for_validators {
-        require(!_robust_mode);
+    function enableRobustMode() external only_for_owner {
+        _robust_mode = true;
+    }
+
+    function registerCommit(address recipient, uint256 amount, bytes32 id, uint256 r, uint256 s, uint8 v) external only_for_validators {
+        require(!_side, "!!_side"); // only on the right side
+        require(_robust_mode, "!_robust_mode");
+    }
+
+    function getTransferDetails(bytes32 id) external {
+        require(!_side, "!!_side"); // only on the right side
+    }
+
+    function getCommit(bytes32 id, uint8 index) external returns (uint256 r, uint256 s, uint8 v) {
+        require(!_side, "!!_side"); // only on the right side
+    }
+
+    function applyCommits(address recipient, uint256 amount, bytes32 id, uint256[] memory r, uint256[] memory s, uint8[] memory v) external {
+        require(_side, "_side"); // only on the left side
+    }
+
+    function commit(address recipient, uint256 amount, bytes32 id) public only_for_validators {
+        require(!_robust_mode || !_side, "robust_enabled"); // block it only on left side if robust enabled
         _confirmPendingAction(id, msg.sender); // may revert here in such cases: (id marked as completed) or (msg.sender already vote)
         if (confirmationsCount(id) >= _validator_set.getThreshold())
         {
             require(address(this).balance >= amount, "!balance>=amount");
-            if (!recipient.send(amount))
-                (new Victim()).sacrifice{value:amount}(recipient);
+            if (!payable(recipient).send(amount))
+                (new Victim()).sacrifice{value:amount}(payable(recipient));
 
             _opposite_side_balance += amount;
 

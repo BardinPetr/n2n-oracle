@@ -66,8 +66,9 @@ class ContractWrapper:
                                     results = w3.eth.call(tx)
                                 except ValueError as ex:
                                     if 'insufficient' in ex.args[0]['message']:
-                                        tx['gasPrice'] = fallback_gp
-                                        results = w3.eth.call(tx)
+                                        #tx['gasPrice'] = fallback_gp
+                                        #results = w3.eth.call(tx)
+                                        pass
                                         
                                 tx['gas'] = w3.eth.estimateGas(tx)
 
