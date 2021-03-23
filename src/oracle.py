@@ -8,7 +8,6 @@ import time
 import dotenv
 from web3 import Web3, HTTPProvider
 from web3.exceptions import ContractLogicError
-from web3.middleware import geth_poa_middleware
 
 from utils.contract_wrapper import ContractWrapper
 from utils.tools import install_solc, to_address, get_ABI
@@ -61,12 +60,12 @@ sb = (int(os.getenv("LEFT_START_BLOCK")), int(os.getenv("RIGHT_START_BLOCK")))
 
 def create(x):
     x = Web3(HTTPProvider(os.getenv(f"{f}_RPCURL")))
-    x.middleware_onion.inject(geth_poa_middleware, layer=0)
+    # x.middleware_onion.inject(geth_poa_middleware, layer=0)
     return x
 
 
-web3 = [create(i) for i in ["LEFT", "RIGHT"]]
-
+# web3 = [create(i) for i in ["LEFT", "RIGHT"]]
+web3 = (Web3(HTTPProvider(os.getenv("LEFT_RPCURL"))), Web3(HTTPProvider(os.getenv("RIGHT_RPCURL"))))
 # Contracts
 abi = get_ABI("src/contracts/", "BridgeSide")
 
