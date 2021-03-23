@@ -73,10 +73,6 @@ log(str(processed))
 def exit_gracefully(*args):
     log(f"Saving {len(processed.keys())} items")
     try:
-        for i in range(2):
-            processed = {
-                i : web3[i]
-            }
         with open(f"{mount_point}/db.json", "w") as f:
             json.dump(processed, f)
     finally:
@@ -120,7 +116,7 @@ contract = [
 latest_event_where_im_not_a_validator = [None, None]
 
 def update(flt, startup=False):
-    found_any = False
+    found_any = [False, False]
     for i in range(2):
         j = (i + 1) % 2
 
@@ -131,26 +127,29 @@ def update(flt, startup=False):
             except ContractLogicError as e:
                 if str(e).find("!validator") == -1:
                     latest_event_where_im_not_a_validator[i] = None
-            return False
+                    found_any[i] = True
+        else:
+            logs = flt[i].get_all_entries() #if startup else flt[i].get_new_entries()
 
-        logs = flt[i].get_all_entries() if startup else flt[i].get_new_entries()
+            for e in logs:
+                data = (e['args']['recipient'], e['args']['amount'], e['transactionHash'].hex())
+                found_any[i] = True
 
-        for e in logs:
-            data = (e['args']['recipient'], e['args']['amount'], e['transactionHash'].hex())
-            found_any = True
+                #log(f"NEW event on NET{i} from {data[0]} with amount {data[1]} with ID{xid}")
+                try:
+                    contract[j].commit(*data)
+                except ContractLogicError as e:
+                    if str(e).find("!validator") != -1:
+                        latest_event_where_im_not_a_validator[i] = data
+                except Exception as ex:
+                    log(str(ex))
+                    # TODO: maybe save failed commit
+                #log(f"OLD event on NET{i} from {data[0]} with amount {data[1]} with ID{xid}")
 
-            #log(f"NEW event on NET{i} from {data[0]} with amount {data[1]} with ID{xid}")
-            try:
-                contract[j].commit(*data)
-            except ContractLogicError as e:
-                if str(e).find("!validator") != -1:
-                    latest_event_where_im_not_a_validator[i] = data
-            except Exception as ex:
-                log(str(ex))
-                # TODO: maybe save failed commit
-            #log(f"OLD event on NET{i} from {data[0]} with amount {data[1]} with ID{xid}")
+        if found_any[i]:
+            processed[i] = web3[i].eth.get_block('latest').number
 
-    return found_any
+    return (found_any[0] or found_any[1])
 
 
 def main():
