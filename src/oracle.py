@@ -1,23 +1,35 @@
 import json
 import os
 import signal
+import sys
 import time
 
 import dotenv
-import solcx
 from web3 import Web3, HTTPProvider
-
-from utils.contract_wrapper import ContractWrapper
-from utils.tools import to_address, get_ABI, install_solc
-
 from web3.exceptions import ContractLogicError
 
-dotenv.load_dotenv(verbose=True, override=True)
-install_solc()
+from src.utils.contract_wrapper import ContractWrapper
+from utils.tools import install_solc, to_address, get_ABI
 
-# load and store database
-processed = {}
+dotenv.load_dotenv(verbose=True, override=True)
+
 mount_point = ("/data" if "deployment" in os.getcwd() else os.getenv("ORACLE_DATA")).removesuffix("/")
+logfile = f"{mount_point}/{int(time.time())}.log"
+
+
+def log(*args, console=True):
+    with open(logfile, "a") as f:
+        if console:
+            print(*args)
+        print(f"[{time.ctime()}]", *args, file=f)
+
+
+log("Started")
+install_solc()
+log("Solc prepared")
+
+# # load and store database
+processed = {}
 try:
     with open(f"{mount_point}/db.json", "r") as f:
         processed = json.load(f)
@@ -26,13 +38,10 @@ except:
 
 
 def exit_gracefully(*args):
-    try:
-        os.mkdir(mount_point)
-    except:
-        pass
+    log(f"Saving {len(processed.keys())} items")
     with open(f"{mount_point}/db.json", "w") as f:
         json.dump(processed, f)
-    exit(0)
+    sys.exit(0)
 
 
 for i in [signal.SIGINT, signal.SIGTERM]:
@@ -50,27 +59,21 @@ web3 = (Web3(HTTPProvider(os.getenv("LEFT_RPCURL"))), Web3(HTTPProvider(os.geten
 
 # Contracts
 abi = get_ABI("src/contracts/", "BridgeSide")
-json.dump(abi, open("./temp/abi.json", "w"))
 
 contract = [
     ContractWrapper(w3=web3[i], gas=gas[i], user_pk=priv_key, abi=abi, address=contract_addr[i])
     for i in range(len(contract_addr))
 ]
 
-
-def log(*args):
-    if os.getenv("DEBUG", '0') == '1':
-        print(*args)
-
-
 latest_event_where_im_not_a_validator = (None, None)
+
 
 def update(flt, startup=False):
     found_any = False
     for i in range(2):
         j = (i + 1) % 2
 
-        if latest_event_where_im_not_a_validator[i] not is None:
+        if latest_event_where_im_not_a_validator[i] is not None:
             xid = latest_event_where_im_not_a_validator[i][2]
             try:
                 contract[j].commit(*latest_event_where_im_not_a_validator[i])
@@ -80,7 +83,7 @@ def update(flt, startup=False):
                 if str(e).find("!validator") == -1:
                     latest_event_where_im_not_a_validator[i] = None
             return False
-        
+
         logs = flt[i].get_all_entries() if startup else flt[i].get_new_entries()
         for e in logs:
             data = (e['args']['recipient'], e['args']['amount'], int.from_bytes(e['transactionHash'], 'big'))
@@ -104,18 +107,20 @@ def update(flt, startup=False):
 
 def main():
     log("Started")
+
     flt = [contract[i].events.bridgeActionInitiated.createFilter(fromBlock=sb[i]) for i in range(2)]
 
+    log("Running first update")
     if not update(flt, startup=True):
         pass  # TODO: Add initialization of contracts
 
-    log("Updating old events completed")
+    log("Updating old events completed. Running continuously")
+    try:
+        while True:
+            update(flt)
+    except KeyboardInterrupt:
+        exit_gracefully()
 
-    while True:
-        update(flt)
 
-
-print(1)
-main()
-print(2)
-
+if __name__ == "__main__":
+    main()
