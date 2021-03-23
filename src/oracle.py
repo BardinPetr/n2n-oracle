@@ -112,8 +112,8 @@ def update(flt, startup=False):
                         latest_event_where_im_not_a_validator[i] = (*data[:-1], xid)
                     log(f"Failed for {xid}")
                 except Exception as ex:
-                    log(ex)
-                    # TODO: save failed commit
+                    log(f"Failed for {xid}", ex)
+                    # TODO: maybe save failed commit
             else:
                 log(f"OLD event on NET{i} from {data[0]} with amount {data[1]} with ID{xid}")
     return found_any

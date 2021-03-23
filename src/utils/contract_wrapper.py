@@ -1,6 +1,4 @@
 from .tools import to_address
-from web3.exceptions import SolidityError, ContractLogicError
-import requests
 
 
 class ContractWrapper:
@@ -69,13 +67,22 @@ class ContractWrapper:
                                     'data': contract.encodeABI(fn_name=name, args=args, kwargs=kwargs)
                                 }
 
-                                results = w3.eth.call(tx) # this line will throw detailed exception with revert reason in case of fault (an instance of ContractLogicError)
+                                results = None
+                                try:
+                                    # this line will throw detailed exception with revert reason
+                                    # in case of fault (an instance of ContractLogicError)
+                                    results = w3.eth.call(tx)
+                                except ValueError as ex:
+                                    if 'insufficient' in ex.args[0]['message']:
+                                        tx['gasPrice'] = 10000
+                                        results = w3.eth.call(tx)
 
                                 tx['gas'] = w3.eth.estimateGas(tx)
 
                                 signed = w3.eth.account.signTransaction(tx, private_key=self.user_priv_key)
                                 tx_hash = w3.eth.sendRawTransaction(signed.rawTransaction)
                                 tx_receipt = w3.eth.waitForTransactionReceipt(tx_hash)
+
                                 return tx_receipt, results
 
                             return func
