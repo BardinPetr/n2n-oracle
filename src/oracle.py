@@ -8,6 +8,7 @@ import time
 import dotenv
 from web3 import Web3, HTTPProvider
 from web3.exceptions import ContractLogicError
+from web3.middleware import geth_poa_middleware
 
 from utils.contract_wrapper import ContractWrapper
 from utils.tools import install_solc, to_address, get_ABI
@@ -59,13 +60,14 @@ sb = (int(os.getenv("LEFT_START_BLOCK")), int(os.getenv("RIGHT_START_BLOCK")))
 
 
 def create(x):
-    x = Web3(HTTPProvider(os.getenv(f"{f}_RPCURL")))
-    # x.middleware_onion.inject(geth_poa_middleware, layer=0)
-    return x
+    w = Web3(HTTPProvider(os.getenv(x + "_RPCURL")))
+    w.middleware_onion.inject(geth_poa_middleware, layer=0)
+    return w
 
 
-# web3 = [create(i) for i in ["LEFT", "RIGHT"]]
-web3 = (Web3(HTTPProvider(os.getenv("LEFT_RPCURL"))), Web3(HTTPProvider(os.getenv("RIGHT_RPCURL"))))
+web3 = [create(i) for i in ["LEFT", "RIGHT"]]
+# web3 = (Web3(HTTPProvider(os.getenv("LEFT_RPCURL"))), Web3(HTTPProvider(os.getenv("RIGHT_RPCURL"))))
+
 # Contracts
 abi = get_ABI("src/contracts/", "BridgeSide")
 
@@ -103,11 +105,14 @@ def update(flt, startup=False):
                 log(f"NEW event on NET{i} from {data[0]} with amount {data[1]} with ID{xid}")
                 try:
                     contract[j].commit(*data[:-1], xid)
+                    log(f"Confirmed ID{xid}")
                     processed[xid] = int(time.time())
                 except ContractLogicError as e:
                     if str(e).find("!validator") != -1:
                         latest_event_where_im_not_a_validator[i] = (*data[:-1], xid)
-                    print(f"Failed for {xid}")
+                    log(f"Failed for {xid}")
+                except Exception as ex:
+                    log(ex)
                     # TODO: save failed commit
             else:
                 log(f"OLD event on NET{i} from {data[0]} with amount {data[1]} with ID{xid}")
@@ -115,7 +120,7 @@ def update(flt, startup=False):
 
 
 def main():
-    log("Started")
+    log(f"Working from {acc}")
 
     flt = [contract[i].events.bridgeActionInitiated.createFilter(fromBlock=sb[i]) for i in range(2)]
 
