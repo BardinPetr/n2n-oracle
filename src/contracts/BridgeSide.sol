@@ -32,24 +32,20 @@ contract FamilyWallet {
 
 contract DATAPACK { // used to incapsulate this data
     struct PA {
-        address[] confirmators;
+        uint256 confirmations;
         mapping(address => bool) is_confirmed_by;
     }
     mapping(bytes32 => PA) private _pending_actions;
-    mapping(bytes32 => bool) private completed;
 
     function isAlreadyConfirmed(bytes32 action_id, address confirmator) public view returns (bool) { // <---------- public
-        if (completed[action_id])
+        if (_pending_actions[action_id].confirmations == type(uint256).max)
             return true;
         else
             return _pending_actions[action_id].is_confirmed_by[confirmator];
     }
 
     function confirmationsCount(bytes32 action_id) public view returns (uint256) { // <---------------------------- public
-        if (completed[action_id])
-            return type(uint256).max;
-        else
-            return _pending_actions[action_id].confirmators.length;
+        return _pending_actions[action_id].confirmations;
     }
 
     function _confirmPendingAction(bytes32 action_id, address confirmator) internal {
@@ -57,14 +53,14 @@ contract DATAPACK { // used to incapsulate this data
         {
             PA storage context = _pending_actions[action_id];
             context.is_confirmed_by[confirmator] = true;
-            context.confirmators.push(confirmator);
+            context.confirmations += 1;
         }
         else
             revert("you cannot voice twice");
     }
 
     function _markCompleted(bytes32 action_id) internal {
-        completed[action_id] = true; 
+        _pending_actions[action_id].confirmations = type(uint256).max; 
     }
 }
 
