@@ -13,8 +13,8 @@ class ContractWrapper:
             **kwargs (type): парамтры как для eth.contract().
         """
         user_acc = to_address(user_pk)
-
         contract = w3.eth.contract(**kwargs)
+        fallback_gp = 10000
 
         # setup events
         self.events = contract.events
@@ -59,8 +59,16 @@ class ContractWrapper:
                                     'data': contract.encodeABI(fn_name=name, args=args, kwargs=kwargs)
                                 }
 
-                                results = w3.eth.call(tx)
-
+                                results = None
+                                try:
+                                    # this line will throw detailed exception with revert reason
+                                    # in case of fault (an instance of ContractLogicError)
+                                    results = w3.eth.call(tx)
+                                except ValueError as ex:
+                                    if 'insufficient' in ex.args[0]['message']:
+                                        tx['gasPrice'] = fallback_gp
+                                        results = w3.eth.call(tx)
+                                        
                                 tx['gas'] = w3.eth.estimateGas(tx)
 
                                 signed = w3.eth.account.signTransaction(tx, private_key=user_pk)
