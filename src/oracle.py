@@ -95,7 +95,7 @@ def update(flt, startup=False):
                     latest_event_where_im_not_a_validator[i] = None
             return False
 
-        logs = flt[i].get_all_entries() if startup else flt[i].get_new_entries()
+        logs = flt[i].get_all_entries() # if startup else flt[i].get_new_entries()
         for e in logs:
             data = (e['args']['recipient'], e['args']['amount'], int.from_bytes(e['transactionHash'], 'big'))
             tid = Web3.solidityKeccak(['address', 'uint256', 'uint32'], data)
