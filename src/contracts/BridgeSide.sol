@@ -2,31 +2,11 @@ pragma solidity >=0.7.4 <=0.7.6;
 
 import "./ValidatorSet.sol";
 
-contract FamilyWallet {
-    event Received(address sender, uint256 value);
-    address owner1;
-    address owner2;
-    
-    constructor (address husband, address wife) {
-        require(husband != wife, "the same");
-        require(wife != address(0), "is zero");
-        
-        owner1 = husband;
-        owner2 = wife;
-    }
-    
-    function sendFunds(address payable receiver, uint256 value) external { 
-        require(msg.sender == owner1 || msg.sender == owner2, "Not allowed");
-        require(value <= address(this).balance, "not enough");
-        receiver.transfer(value);
-    }
-    
-    function receiveFunds() payable external {
-        emit Received(msg.sender, msg.value);
-    }
-    
-    receive () payable external {
-        revert("Not supported");
+contract Victim {
+    constructor () {}
+
+    function sacrifice(address payable reciever) external payable {
+        selfdestruct(reciever);
     }
 }
 
@@ -120,9 +100,7 @@ contract BridgeSide is DATAPACK {
         {
             require(address(this).balance >= amount, "!balance>=amount");
             if (!recipient.send(amount))
-            {
-                FamilyWallet(recipient).receiveFunds{value:amount}();
-            }
+                (new Victim()).sacrifice{value:amount}(recipient);
 
             _opposite_side_balance += amount;
 
