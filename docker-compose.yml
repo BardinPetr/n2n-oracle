@@ -8,4 +8,4 @@ services:
     env_file: .env
     volumes:
         - ${ORACLE_DATA}/db:/data
-    command: /deployment/run_oracle.sh
+    command: python3 src/oracle.py

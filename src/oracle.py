@@ -8,7 +8,7 @@ import dotenv
 from web3 import Web3, HTTPProvider
 from web3.exceptions import ContractLogicError
 
-from src.utils.contract_wrapper import ContractWrapper
+from utils.contract_wrapper import ContractWrapper
 from utils.tools import install_solc, to_address, get_ABI
 
 dotenv.load_dotenv(verbose=True, override=True)
