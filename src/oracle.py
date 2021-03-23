@@ -4,6 +4,7 @@ import signal
 import time
 
 import dotenv
+import solcx
 from web3 import Web3, HTTPProvider
 
 from utils.contract_wrapper import ContractWrapper
@@ -14,7 +15,7 @@ install_solc()
 
 # load and store database
 processed = {}
-mount_point = os.getenv("ORACLE_DATA", "./temp").removesuffix("/")
+mount_point = ("/data" if "deployment" in os.getcwd() else os.getenv("ORACLE_DATA")).removesuffix("/")
 try:
     with open(f"{mount_point}/db.json", "r") as f:
         processed = json.load(f)
@@ -96,5 +97,7 @@ def main():
         update(flt)
 
 
-if __name__ == '__main__':
-    main()
+print(1)
+main()
+print(2)
+
