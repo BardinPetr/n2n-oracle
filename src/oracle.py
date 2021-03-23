@@ -48,6 +48,7 @@ web3 = (Web3(HTTPProvider(os.getenv("LEFT_RPCURL"))), Web3(HTTPProvider(os.geten
 
 # Contracts
 abi = get_ABI("src/contracts/", "BridgeSide")
+json.dump(abi, open("./temp/abi.json", "w"))
 
 contract = [
     ContractWrapper(w3=web3[i], gas=gas[i], user_pk=priv_key, abi=abi, address=contract_addr[i])
@@ -55,7 +56,13 @@ contract = [
 ]
 
 
+def log(*args):
+    if os.getenv("DEBUG", '0') == '1':
+        print(*args)
+
+
 def update(flt, startup=False):
+    found_any = False
     for i in range(2):
         logs = flt[i].get_all_entries() if startup else flt[i].get_new_entries()
         j = (i + 1) % 2
@@ -63,14 +70,24 @@ def update(flt, startup=False):
             data = (e['args']['recipient'], e['args']['amount'], int.from_bytes(e['transactionHash'], 'big'))
             tid = Web3.solidityKeccak(['address', 'uint256', 'uint32'], data)
             xid = tid.hex()
+            found_any = True
             if xid not in processed:
-                contract[j].commit(*data[:-1], tid)
+                log(f"NEW event on NET{i} from {data[0]} with amount {data[1]} with ID{xid}")
+                contract[j].commit(*data[:-1], xid)
                 processed[xid] = int(time.time())
+            else:
+                log(f"OLD event on NET{i} from {data[0]} with amount {data[1]} with ID{xid}")
+    return found_any
 
 
 def main():
+    log("Started")
     flt = [contract[i].events.bridgeActionInitiated.createFilter(fromBlock=sb[i]) for i in range(2)]
-    update(flt, startup=True)
+
+    if not update(flt, startup=True):
+        pass  # TODO: Add initialization of contracts
+
+    log("Updating old events completed")
 
     while True:
         update(flt)
