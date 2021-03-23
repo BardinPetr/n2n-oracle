@@ -4,7 +4,7 @@ import dotenv
 import solcx
 from web3 import Web3, HTTPProvider
 
-from utils.tools import to_address
+from utils.tools import to_address, install_solc
 
 dotenv.load_dotenv(verbose=True, override=True)
 
@@ -46,13 +46,7 @@ def deploy(contract, name, constructor, network="LEFT", retry=False):
 
 
 def main():
-    while 1:
-        try:
-            solcx.install_solc(SOLCV)
-            break
-        except:
-            pass
-    solcx.set_solc_version(SOLCV)
+    install_solc()
     base_dir = "src/contracts/"
     contracts = [("Validators Set", "ValidatorSet.sol"), ("Bridge", "BridgeSide.sol")]
     res = solcx.compile_files([base_dir + i[1] for i in contracts],
@@ -68,7 +62,7 @@ def main():
                      i)['contractAddress']
         br = deploy(res.get(f"{base_dir}{contracts[1][1]}:{contracts[1][1].removesuffix('.sol')}"),
                     contracts[1][0],
-                    (val,),
+                    (val, i == "LEFT"),
                     i)
 
         br_blocks.append(br['blockNumber'])

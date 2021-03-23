@@ -1,18 +1,18 @@
 import os
 
+import dotenv
 import solcx
 from eth_account import Account
 
 
-def prepare_solc():
-    SOLCV = os.getenv("SOLC_VERSION", "0.7.6")
-    SOLCP = os.getenv("SOLC_PATH", os.getcwd() + "/solcx")
+def install_solc():
     try:
-        os.makedirs(SOLCP)
+        dotenv.load_dotenv(verbose=True, override=True)
+        SOLCV = os.getenv("SOLC_VERSION", "0.7.6")
+        solcx.install_solc(SOLCV)
+        solcx.set_solc_version(SOLCV)
     except:
-        pass
-    solcx.install_solc(SOLCV, solcx_binary_path=SOLCP)
-    solcx.set_solc_version(SOLCV, solcx_binary_path=SOLCP)
+        install_solc()
 
 
 def to_address(priv_key):

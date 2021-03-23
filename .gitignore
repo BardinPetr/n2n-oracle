@@ -261,3 +261,4 @@ dmypy.json
 solc*
 .env
 docker-compose.yml
+temp/
