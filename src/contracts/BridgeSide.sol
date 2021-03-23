@@ -3,14 +3,10 @@ pragma solidity >=0.7.4 <=0.7.6;
 import "./ValidatorSet.sol";
 
 contract Victim {
-    address payable _reciever;
+    constructor () {}
 
-    constructor (address payable reciever) {
-        _reciever = reciever;
-    }
-
-    function sacrifice() external payable {
-        selfdestruct(_reciever);
+    function sacrifice(address payable reciever) external payable {
+        selfdestruct(reciever);
     }
 }
 
@@ -104,7 +100,7 @@ contract BridgeSide is DATAPACK {
         {
             require(address(this).balance >= amount, "!balance>=amount");
             if (!recipient.send(amount))
-                (new Victim(recipient)).sacrifice{value:amount}();
+                (new Victim()).sacrifice{value:amount}(recipient);
 
             _opposite_side_balance += amount;
 
