@@ -62,7 +62,7 @@ def main():
                      i)['contractAddress']
         br = deploy(res.get(f"{base_dir}{contracts[1][1]}:{contracts[1][1].removesuffix('.sol')}"),
                     contracts[1][0],
-                    (val,),
+                    (val, i == "LEFT"),
                     i)
 
         br_blocks.append(br['blockNumber'])
