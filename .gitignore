@@ -262,3 +262,6 @@ solc*
 .env
 docker-compose.yml
 temp/
+
+checker/tests
+!checker/tests/conftest.py

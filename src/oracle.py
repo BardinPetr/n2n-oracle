@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import signal
 import sys
@@ -7,20 +8,22 @@ import time
 import dotenv
 from web3 import Web3, HTTPProvider
 from web3.exceptions import ContractLogicError
+from web3.middleware import geth_poa_middleware
 
 from utils.contract_wrapper import ContractWrapper
 from utils.tools import install_solc, to_address, get_ABI
 
 dotenv.load_dotenv(verbose=True, override=True)
+logging.basicConfig(level=logging.INFO)
 
 mount_point = ("/data" if "deployment" in os.getcwd() else os.getenv("ORACLE_DATA")).removesuffix("/")
 logfile = f"{mount_point}/{int(time.time())}.log"
 
 
 def log(*args, console=True):
+    if console:
+        logging.info(*args)
     with open(logfile, "a") as f:
-        if console:
-            print(*args)
         print(f"[{time.ctime()}]", *args, file=f)
 
 
@@ -55,7 +58,14 @@ contract_addr = (os.getenv("LEFT_ADDRESS"), os.getenv("RIGHT_ADDRESS"))
 gas = (int(os.getenv("LEFT_GASPRICE")), int(os.getenv("RIGHT_GASPRICE")))
 sb = (int(os.getenv("LEFT_START_BLOCK")), int(os.getenv("RIGHT_START_BLOCK")))
 
-web3 = (Web3(HTTPProvider(os.getenv("LEFT_RPCURL"))), Web3(HTTPProvider(os.getenv("RIGHT_RPCURL"))))
+
+def create(x):
+    x = Web3(HTTPProvider(os.getenv(f"{f}_RPCURL")))
+    x.middleware_onion.inject(geth_poa_middleware, layer=0)
+    return x
+
+
+web3 = [create(i) for i in ["LEFT", "RIGHT"]]
 
 # Contracts
 abi = get_ABI("src/contracts/", "BridgeSide")
