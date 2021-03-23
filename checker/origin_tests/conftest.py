@@ -53,7 +53,7 @@ def accounts() -> list[Account]:
         
 
 @pytest.fixture(scope = 'function', autouse = True)
-def setup_teardown(log:Logger, accounts:list[Account]) -> None:
+def setup_teardown(log:Logger, docker:DockerClient, accounts:list[Account]) -> None:
     # To be removed after test.
     pytest.oracles = []
     
@@ -61,7 +61,7 @@ def setup_teardown(log:Logger, accounts:list[Account]) -> None:
 
     # Stop all possible oracles. Oracles can from 10.
     for address in pytest.oracles:
-        stop_oracle(log, address, remove_db = True)
+        stop_oracle(log, docker, address, remove_db = True)
 
 
 @pytest.fixture(scope = 'session', autouse = True)
@@ -125,7 +125,7 @@ def nodes(web3_left:Web3, web3_right:Web3, accounts:list[Account], docker:Docker
             balance_src = Web3.fromWei(web3_left.eth.get_balance(account.address), 'ether')
             balance_dst = Web3.fromWei(web3_right.eth.get_balance(account.address), 'ether')
 
-            log.debug(f'Account (i): {account.address}: {balance_src} {balance_dst}.')
+            log.debug(f'Account ({i}): {account.address}: {balance_src} {balance_dst}.')
 
         # Burn other.
         web3_left.eth.sendTransaction(
