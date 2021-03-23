@@ -10,4 +10,4 @@ RUN pip install -r requirements.txt
 
 COPY . .
 
-RUN chmod +x /deployment/run.sh
+RUN chmod +x /deployment/run*

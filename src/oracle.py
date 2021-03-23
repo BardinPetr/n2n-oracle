@@ -10,12 +10,11 @@ from utils.contract_wrapper import ContractWrapper
 from utils.tools import to_address, get_ABI, install_solc
 
 dotenv.load_dotenv(verbose=True, override=True)
-
 install_solc()
 
 # load and store database
 processed = {}
-mount_point = os.getenv("ORACLE_DATA")
+mount_point = os.getenv("ORACLE_DATA", "./temp").removesuffix("/")
 try:
     with open(f"{mount_point}/db.json", "r") as f:
         processed = json.load(f)
@@ -73,8 +72,12 @@ def update(flt, startup=False):
             found_any = True
             if xid not in processed:
                 log(f"NEW event on NET{i} from {data[0]} with amount {data[1]} with ID{xid}")
-                contract[j].commit(*data[:-1], xid)
-                processed[xid] = int(time.time())
+                try:
+                    contract[j].commit(*data[:-1], xid)
+                    processed[xid] = int(time.time())
+                except Exception:
+                    print(f"Failed for {xid}")
+                    pass  # TODO: save failed commit
             else:
                 log(f"OLD event on NET{i} from {data[0]} with amount {data[1]} with ID{xid}")
     return found_any
