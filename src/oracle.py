@@ -76,7 +76,7 @@ contract = [
     for i in range(len(contract_addr))
 ]
 
-latest_event_where_im_not_a_validator = (None, None)
+latest_event_where_im_not_a_validator = [None, None]
 
 
 def update(flt, startup=False):
