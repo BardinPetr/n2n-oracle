@@ -46,21 +46,10 @@ contract_addr = (os.getenv("LEFT_ADDRESS"), os.getenv("RIGHT_ADDRESS"))
 gas = (int(os.getenv("LEFT_GASPRICE")), int(os.getenv("RIGHT_GASPRICE")))
 sb = (int(os.getenv("LEFT_START_BLOCK")), int(os.getenv("RIGHT_START_BLOCK")))
 
-
-def create(x):
-    w = Web3(HTTPProvider(os.getenv(x + "_RPCURL")))
-    w.middleware_onion.inject(geth_poa_middleware, layer=0)
-    return w
-
-
-web3 = [create(i) for i in ["LEFT", "RIGHT"]]
-# web3 = (Web3(HTTPProvider(os.getenv("LEFT_RPCURL"))), Web3(HTTPProvider(os.getenv("RIGHT_RPCURL"))))
-
-
 # load and store database
 processed = {
-    0 : sb[0],
-    1 : sb[1]
+    0: sb[0],
+    1: sb[1]
 }
 try:
     with open(f"{mount_point}/db.json", "r") as f:
@@ -68,25 +57,23 @@ try:
 except:
     pass
 
-log(str(processed))
 
 def exit_gracefully(*args):
+    global processed
     log(f"Saving {len(processed.keys())} items")
     try:
+<<<<<<< HEAD
+=======
+        processed = {i: web3[i].eth.get_block('latest').number for i in range(2)}
+>>>>>>> c41e5239009a1672831403b254b35aab7711bdce
         with open(f"{mount_point}/db.json", "w") as f:
             json.dump(processed, f)
     finally:
         sys.exit(0)
 
 
-
 for i in [signal.SIGINT, signal.SIGTERM]:
     signal.signal(i, exit_gracefully)
-
-
-contract_addr = (os.getenv("LEFT_ADDRESS"), os.getenv("RIGHT_ADDRESS"))
-gas = (int(os.getenv("LEFT_GASPRICE")), int(os.getenv("RIGHT_GASPRICE")))
-sb = (int(os.getenv("LEFT_START_BLOCK")), int(os.getenv("RIGHT_START_BLOCK")))
 
 
 def create(x):
@@ -114,6 +101,7 @@ contract = [
 ]
 
 latest_event_where_im_not_a_validator = [None, None]
+
 
 def update(flt, startup=False):
     found_any = [False, False]

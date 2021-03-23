@@ -55,6 +55,21 @@ contract BridgeSide is DATAPACK {
     uint256 private _opposite_side_balance;
 
     bool private _side;
+    bool private _robust_mode;
+
+    struct Commit {
+        uint256 r;
+        uint256 s;
+        uint8 v;
+    }
+
+    struct CommitsPool {
+        address recipient;
+        uint256 amount;
+        Commit[] approvements;
+    }
+
+    mapping(bytes32 => CommitsPool) private commits;
 
     modifier only_for_owner() {
         require(msg.sender == _owner, "!owner");
@@ -90,11 +105,24 @@ contract BridgeSide is DATAPACK {
         _liquidity = newlimit;
     }
 
+    function enableRobustMode() external {
+        _robust_mode = true;
+    }
+
+    function registerCommit(address recipient, uint256 amount, bytes32 id, uint256 r, uint256 s, uint8 v) external {
+
+    }
+
+    function getTransferDetails(bytes32 id) external {
+
+    }
+
     function getLiquidityLimit() public view returns (uint256) {
         return _liquidity;
     }
 
     function commit(address payable recipient, uint256 amount, bytes32 id) public only_for_validators {
+        require(!_robust_mode);
         _confirmPendingAction(id, msg.sender); // may revert here in such cases: (id marked as completed) or (msg.sender already vote)
         if (confirmationsCount(id) >= _validator_set.getThreshold())
         {
