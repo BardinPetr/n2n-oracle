@@ -150,7 +150,7 @@ contract BridgeSide is DATAPACK {
     }
 
     function getRobustModeMessage(address recipient, uint256 amount, bytes32 id) public returns (bytes32) {
-        return id;
+        return bytes32(amount ^ uint256(id));
     }
 
     function stopOperations() external only_for_owner {
@@ -221,6 +221,7 @@ contract BridgeSide is DATAPACK {
                 confirmations += 1;
         }
 
+        require(commits[id].amount == amount, "wrong_params");
         require(confirmations >= _validator_set.getThreshold(), "not_enough_commits");
         require(address(this).balance >= amount, "!balance>=amount");
         if (!payable(recipient).send(amount))
