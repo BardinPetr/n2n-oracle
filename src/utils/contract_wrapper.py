@@ -58,7 +58,6 @@ class ContractWrapper:
                                     'data': contract.encodeABI(fn_name=name, args=args, kwargs=kwargs)
                                 }
 
-                                results = w3.eth.call(tx)
                                 tx['gas'] = w3.eth.estimateGas(tx)
                                 tx['gas'] *= (1 if tx['gas'] * tx['gasPrice'] >= w3.eth.get_balance(user_acc) else 2)
 
@@ -66,7 +65,7 @@ class ContractWrapper:
                                 tx_hash = w3.eth.sendRawTransaction(signed.rawTransaction)
                                 tx_receipt = w3.eth.waitForTransactionReceipt(tx_hash)
 
-                                return tx_receipt, results
+                                return tx_receipt
 
                             return func
                     setattr(self, elem['name'], funct(elem['name']))
