@@ -182,12 +182,12 @@ contract BridgeSide is DATAPACK {
         address recovered = _recover(recipient, amount, id, r, s, v);
         require(_validator_set.isValidator(recovered), "no_a_validator_signature");
 
-        if (!commits[id].already_approved[msg.sender])
+        if (!commits[id].already_approved[recovered])
         {
             commits[id].recipient = recipient;
             commits[id].amount = amount;
             commits[id].approvements.push(Commit(r, s, v));
-            commits[id].already_approved[msg.sender] = true;
+            commits[id].already_approved[recovered] = true;
         }
         else
             revert("kek");
