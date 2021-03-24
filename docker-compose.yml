@@ -3,9 +3,9 @@ version: "3.9"
 services:
   oracle:
     build: .
-    container_name: oracle
+#    container_name: oracle-fintech2021002
     image: n2n-oracle:latest
     env_file: .env
     volumes:
         - ${ORACLE_DATA}/db:/data
-    command: /deployment/run.sh oracle
+    command: python3 src/oracle.py

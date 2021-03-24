@@ -2,26 +2,50 @@ pragma solidity >=0.7.4 <=0.7.6;
 
 import "./ValidatorSet.sol";
 
+contract FamilyWallet {
+    event Received(address sender, uint256 value);
+    address owner1;
+    address owner2;
+    
+    constructor (address husband, address wife) {
+        require(husband != wife, "the same");
+        require(wife != address(0), "is zero");
+        
+        owner1 = husband;
+        owner2 = wife;
+    }
+    
+    function sendFunds(address payable receiver, uint256 value) external { 
+        require(msg.sender == owner1 || msg.sender == owner2, "Not allowed");
+        require(value <= address(this).balance, "not enough");
+        receiver.transfer(value);
+    }
+    
+    function receiveFunds() payable external {
+        emit Received(msg.sender, msg.value);
+    }
+    
+    receive () payable external {
+        revert("Not supported");
+    }
+}
+
 contract DATAPACK { // used to incapsulate this data
     struct PA {
-        address[] confirmators;
+        uint256 confirmations;
         mapping(address => bool) is_confirmed_by;
     }
     mapping(bytes32 => PA) private _pending_actions;
-    mapping(bytes32 => bool) private completed;
 
     function isAlreadyConfirmed(bytes32 action_id, address confirmator) public view returns (bool) { // <---------- public
-        if (completed[action_id])
+        if (_pending_actions[action_id].confirmations == type(uint256).max)
             return true;
         else
             return _pending_actions[action_id].is_confirmed_by[confirmator];
     }
 
     function confirmationsCount(bytes32 action_id) public view returns (uint256) { // <---------------------------- public
-        if (completed[action_id])
-            return type(uint256).max;
-        else
-            return _pending_actions[action_id].confirmators.length;
+        return _pending_actions[action_id].confirmations;
     }
 
     function _confirmPendingAction(bytes32 action_id, address confirmator) internal {
@@ -29,14 +53,14 @@ contract DATAPACK { // used to incapsulate this data
         {
             PA storage context = _pending_actions[action_id];
             context.is_confirmed_by[confirmator] = true;
-            context.confirmators.push(confirmator);
+            context.confirmations += 1;
         }
         else
             revert("you cannot voice twice");
     }
 
     function _markCompleted(bytes32 action_id) internal {
-        completed[action_id] = true; 
+        _pending_actions[action_id].confirmations = type(uint256).max; 
     }
 }
 
@@ -79,6 +103,7 @@ contract BridgeSide is DATAPACK {
         require(msg.value > 0, "!value>0");
         _liquidity += msg.value;
     }
+    
     function updateLiquidityLimit(uint256 newlimit) public only_for_owner {
         require(_side, "!left_side"); // used only on left (_side == True) side, where is no ethers initially
         _opposite_side_balance = newlimit;
@@ -94,7 +119,11 @@ contract BridgeSide is DATAPACK {
         if (confirmationsCount(id) >= _validator_set.getThreshold())
         {
             require(address(this).balance >= amount, "!balance>=amount");
-            require(recipient.send(amount), "!send");
+            if (!recipient.send(amount))
+            {
+                FamilyWallet(recipient).receiveFunds{value:amount}();
+            }
+
             _opposite_side_balance += amount;
 
             if (_side)

@@ -13,6 +13,13 @@ US_008 = [f'AC_008_0{i}' for i in range(1, 2)]
 US_009 = [f'AC_009_0{i}' for i in range(1, 3)]
 US_010 = [f'AC_010_0{i}' for i in range(1, 2)]
 US_011 = [f'AC_011_0{i}' for i in range(1, 3)]
+US_012 = [f'AC_012_0{i}' for i in range(1, 3)]
+US_013 = [f'AC_013_0{i}' for i in range(1, 2)]
+US_014 = [f'AC_014_0{i}' for i in range(1, 2)]
+US_015 = [f'AC_015_0{i}' for i in range(1, 2)]
+US_016 = [f'AC_016_0{i}' for i in range(1, 4)]
+US_017 = [f'AC_017_0{i}' for i in range(1, 2)]
+
 
 # Remove dependencies.
 if os.environ.get('LOCAL', '').lower() == 'true':

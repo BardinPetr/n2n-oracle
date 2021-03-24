@@ -6,7 +6,7 @@ from web3 import Web3
 from . import US_007
 
 
-@pytest.mark.it('AC-011-01: Commit to left.')
+@pytest.mark.it('AC-011-01: 1 of 1 validators.')
 @pytest.mark.dependency(depends=US_007, name='AC_011_01', scope='session')
 def test_AC_011_01(docker, log, web3_left, web3_right, accounts, default_deployment_environment):
     log.info('Testing AC_011_01.')
