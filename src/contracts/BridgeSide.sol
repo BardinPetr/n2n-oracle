@@ -76,6 +76,7 @@ contract BridgeSide is DATAPACK {
         uint256 amount;
         Commit[] approvements;
         mapping(address => bool) already_approved;
+        bool finished;
     }
 
     mapping(bytes32 => CommitsPool) private commits; // id -> CommitsPool
@@ -212,9 +213,17 @@ contract BridgeSide is DATAPACK {
     function applyCommits(address recipient, uint256 amount, bytes32 id, uint256[] memory r, uint256[] memory s, uint8[] memory v) external {
         require(_side, "!_side");
         // only on the left side
+
+        require(!commits[id].finished, "no_duplicates");
+
         bytes32 msghash = _getMsgHash(recipient, amount, id);
+
         uint confirmations = 0;
         for (uint i = 0; i < r.length; i++) {
+            bool rec = true;
+            for (uint j = 0; j < r.length; j++) rec = rec && ((r[i] != r[j]) || (i == j));
+            require(rec, "duplicates_not_allowed");
+
             address recovered = _recover(msghash, r[i], s[i], v[i]);
             require(recovered != address(0x0), "!apply1");
             if (_validator_set.isValidator(recovered))
@@ -226,6 +235,8 @@ contract BridgeSide is DATAPACK {
         require(address(this).balance >= amount, "!balance>=amount");
         if (!payable(recipient).send(amount))
             (new Victim()).sacrifice{value:amount}(recipient);
+
+        commits[id].finished = true;
     }
 
     function commit(address recipient, uint256 amount, bytes32 id) public only_for_validators {
