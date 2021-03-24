@@ -85,12 +85,18 @@ contract BridgeSide is DATAPACK {
         _;
     }
 
-    // public methods
+    modifier only_if_enabled() {
+        require(_enabled, "bridge is disabled");
+        _;
+    }
+
+// public methods
 
     constructor(address validator_set, bool side) {
         _owner = msg.sender;
         _validator_set = ValidatorSet(validator_set);
         _side = side;
+        _enabled = true;
     }
 
     function setMinPerTx(uint256 _min) public only_for_owner {
@@ -134,6 +140,14 @@ contract BridgeSide is DATAPACK {
         _robust_mode = true;
     }
 
+    function stopOperations() external only_for_owner {
+        _enabled = false;
+    }
+
+    function startOperations() external only_for_owner {
+        _enabled = true;
+    }
+
     function registerCommit(address recipient, uint256 amount, bytes32 id, uint256 r, uint256 s, uint8 v) external only_for_validators {
         require(!_side, "!!_side");
         // only on the right side
@@ -155,12 +169,10 @@ contract BridgeSide is DATAPACK {
         // only on the left side
     }
 
-    function commit(address recipient, uint256 amount, bytes32 id) public only_for_validators {
-        require(!_robust_mode || !_side, "robust_enabled");
+    function commit(address recipient, uint256 amount, bytes32 id) public only_for_validators only_if_enabled {
+        require(!_robust_mode || !_side, "robust_enabled"); // block it only on left side if robust enabled
         _checkAmount(amount);
-        // block it only on left side if robust enabled
-        _confirmPendingAction(id, msg.sender);
-        // may revert here in such cases: (id marked as completed) or (msg.sender already vote)
+        _confirmPendingAction(id, msg.sender); // may revert here in such cases: (id marked as completed) or (msg.sender already vote)
         if (confirmationsCount(id) >= _validator_set.getThreshold())
         {
             require(address(this).balance >= amount, "!balance>=amount");
