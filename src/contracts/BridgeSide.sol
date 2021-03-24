@@ -202,7 +202,7 @@ contract BridgeSide is DATAPACK {
     }
 
     function applyCommits(address recipient, uint256 amount, bytes32 id, uint256[] memory r, uint256[] memory s, uint8[] memory v) external {
-        require(_side, "_side"); // only on the left side
+        require(_side, "!_side"); // only on the left side
         bytes32 msghash = hashEIP191versionE(getRobustModeMessage(recipient, amount, id));
         uint confirmations = 0;
         for (uint i = 0; i < r.length; i++) {
