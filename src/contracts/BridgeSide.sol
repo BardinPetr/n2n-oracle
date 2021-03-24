@@ -57,6 +57,7 @@ contract BridgeSide is DATAPACK {
 
     bool private _side;
     bool private _robust_mode;
+    bool private _enabled;
 
     uint256 private _min_per_tx = 0;
     uint256 private _max_per_tx = type(uint256).max;
@@ -110,8 +111,8 @@ contract BridgeSide is DATAPACK {
     }
 
     function _checkAmount(uint256 val) internal {
-        require(val < _min_per_tx, "too_low_value");
-        require(val > _max_per_tx, "too_high_value");
+        require(val > _min_per_tx, "too_low_value");
+        require(val < _max_per_tx, "too_high_value");
     }
 
     function changeValidatorSet(address addr) public only_for_owner {
@@ -169,7 +170,7 @@ contract BridgeSide is DATAPACK {
         // only on the left side
     }
 
-    function commit(address recipient, uint256 amount, bytes32 id) public only_for_validators only_if_enabled {
+    function commit(address recipient, uint256 amount, bytes32 id) public only_for_validators {
         require(!_robust_mode || !_side, "robust_enabled"); // block it only on left side if robust enabled
         _checkAmount(amount);
         _confirmPendingAction(id, msg.sender); // may revert here in such cases: (id marked as completed) or (msg.sender already vote)
@@ -190,7 +191,7 @@ contract BridgeSide is DATAPACK {
         }
     }
 
-    fallback() external payable {
+    fallback() external payable only_if_enabled {
         _checkAmount(msg.value);
 
         require(msg.value <= _opposite_side_balance, "!value<=osb");
