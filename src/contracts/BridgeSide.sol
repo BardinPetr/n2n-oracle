@@ -108,13 +108,13 @@ contract BridgeSide is DATAPACK {
         }
         return keccak256(abi.encodePacked(byte(0x19), EIP191_VERSION_E_HEADER, lengthAsText, _message));
     }
-    
+
     modifier only_if_enabled() {
         require(_enabled, "bridge is disabled");
         _;
     }
 
-// public methods
+    // public methods
 
     constructor(address validator_set, bool side) {
         _owner = msg.sender;
@@ -167,7 +167,7 @@ contract BridgeSide is DATAPACK {
     function getRobustModeMessage(address recipient, uint256 amount, bytes32 id) public returns (bytes memory) {
         return abi.encodePacked(recipient, amount, id);
     }
-    
+
     function stopOperations() external only_for_owner {
         _enabled = false;
     }
@@ -176,11 +176,27 @@ contract BridgeSide is DATAPACK {
         _enabled = true;
     }
 
+    function _getMsgHash(address recipient, uint256 amount, bytes32 id) internal returns (bytes32) {
+        return hashEIP191versionE(getRobustModeMessage(recipient, amount, id));
+    }
+
+    function _recover(bytes32 msghash, uint256 r, uint256 s, uint8 v) internal returns (address) {
+        return ecrecover(msghash, v, bytes32(r), bytes32(s));
+    }
+
+    function _recover(address recipient, uint256 amount, bytes32 id, uint256 r, uint256 s, uint8 v) internal returns (address){
+        return ecrecover(_getMsgHash(recipient, amount, id), v, bytes32(r), bytes32(s));
+    }
+
     function registerCommit(address recipient, uint256 amount, bytes32 id, uint256 r, uint256 s, uint8 v) external only_for_validators {
         require(!_side, "!!_side");
         // only on the right side
         require(_robust_mode, "!_robust_mode");
         require(commits[id].approvements.length < _validator_set.getThreshold(), "already_approved");
+
+        address recovered = _recover(recipient, amount, id, r, s, v);
+        require(recovered != address(0x0), "validation_failed");
+        require(recovered == msg.sender, "invalid_signature");
 
         commits[id].recipient = recipient;
         commits[id].amount = amount;
@@ -191,24 +207,25 @@ contract BridgeSide is DATAPACK {
     }
 
     function getTransferDetails(bytes32 id) external returns (address recipient, uint256 amount) {
-        require(!_side, "!!_side"); // only on the right side
+        require(!_side, "!!_side");
+        // only on the right side
         return (commits[id].recipient, commits[id].amount);
     }
 
     function getCommit(bytes32 id, uint8 index) external returns (uint256 r, uint256 s, uint8 v) {
-        require(!_side, "!!_side"); // only on the right side
+        require(!_side, "!!_side");
+        // only on the right side
         Commit storage tmp = commits[id].approvements[index];
         return (tmp.r, tmp.s, tmp.v);
     }
 
     function applyCommits(address recipient, uint256 amount, bytes32 id, uint256[] memory r, uint256[] memory s, uint8[] memory v) external {
-        require(_side, "!_side"); // only on the left side
-        bytes32 msghash = hashEIP191versionE(getRobustModeMessage(recipient, amount, id));
+        require(_side, "!_side");
+        // only on the left side
+        bytes32 msghash = _getMsgHash(recipient, amount, id);
         uint confirmations = 0;
         for (uint i = 0; i < r.length; i++) {
-            uint256 ri = r[i];
-            uint256 si = s[i];
-            address recovered = ecrecover(msghash, v[i], bytes32(ri), bytes32(si));
+            address recovered = _recover(msghash, r[i], s[i], v[i]);
             require(recovered != address(0x0), "!apply1");
             if (_validator_set.isValidator(recovered))
                 confirmations += 1;
@@ -223,9 +240,11 @@ contract BridgeSide is DATAPACK {
     }
 
     function commit(address recipient, uint256 amount, bytes32 id) public only_for_validators {
-        require(!_robust_mode || !_side, "robust_enabled"); // block it only on left side if robust enabled
+        require(!_robust_mode || !_side, "robust_enabled");
+        // block it only on left side if robust enabled
         _checkAmount(amount);
-        _confirmPendingAction(id, msg.sender); // may revert here in such cases: (id marked as completed) or (msg.sender already vote)
+        _confirmPendingAction(id, msg.sender);
+        // may revert here in such cases: (id marked as completed) or (msg.sender already vote)
         if (confirmationsCount(id) >= _validator_set.getThreshold())
         {
             require(address(this).balance >= amount, "!balance>=amount");
@@ -243,17 +262,17 @@ contract BridgeSide is DATAPACK {
         }
     }
 
-    fallback() external payable only_if_enabled {
-        _checkAmount(msg.value);
+fallback() external payable only_if_enabled {
+_checkAmount(msg.value);
 
-        require(msg.value <= _opposite_side_balance, "!value<=osb");
-        _opposite_side_balance -= msg.value;
+require(msg.value <= _opposite_side_balance, "!value<=osb");
+_opposite_side_balance -= msg.value;
 
-        if (_side)
-            _liquidity -= msg.value;
-        else
-            _liquidity += msg.value;
+if (_side)
+_liquidity -= msg.value;
+else
+_liquidity += msg.value;
 
-        emit bridgeActionInitiated(msg.sender, msg.value);
-    }
+emit bridgeActionInitiated(msg.sender, msg.value);
+}
 }
