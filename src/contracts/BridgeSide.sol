@@ -197,17 +197,29 @@ contract BridgeSide is DATAPACK {
             emit commitsCollected(id, uint8(commits[id].approvements.length));
     }
 
-    function getTransferDetails(bytes32 id) external returns (address recipient, uint256 amount) {
+    function getTransferDetails(bytes32 id) external view returns (address recipient, uint256 amount) {
         require(!_side, "!!_side");
         // only on the right side
         return (commits[id].recipient, commits[id].amount);
     }
 
-    function getCommit(bytes32 id, uint8 index) external returns (uint256 r, uint256 s, uint8 v) {
+    function getCommit(bytes32 id, uint8 index) external view returns (uint256 r, uint256 s, uint8 v) {
         require(!_side, "!!_side");
         // only on the right side
         Commit storage tmp = commits[id].approvements[index];
         return (tmp.r, tmp.s, tmp.v);
+    }
+
+    function getCommits(bytes32 id) external view returns (uint256[] memory r, uint256[] memory s, uint8[] memory v) {
+        uint256[] memory rm;
+        uint256[] memory sm;
+        uint8[] memory vm;
+        for (uint i = 0; i < commits[id].approvements.lenght; i++) {
+            rm.push(commits[id].approvements[i].r);
+            sm.push(commits[id].approvements[i].s);
+            vm.push(commits[id].approvements[i].v);
+        }
+        return (rm, sm, vm);
     }
 
     function applyCommits(address recipient, uint256 amount, bytes32 id, uint256[] memory r, uint256[] memory s, uint8[] memory v) external {
