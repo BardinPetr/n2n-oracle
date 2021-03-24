@@ -265,3 +265,5 @@ temp/
 
 checker/tests
 !checker/tests/conftest.py
+
+src/contracts/abi.json

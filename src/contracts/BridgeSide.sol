@@ -10,21 +10,22 @@ contract Victim {
     }
 }
 
-contract DATAPACK { // used to incapsulate this data
+contract DATAPACK {// used to incapsulate this data
     struct PA {
         uint256 confirmations;
         mapping(address => bool) is_confirmed_by;
     }
+
     mapping(bytes32 => PA) private _pending_actions;
 
-    function isAlreadyConfirmed(bytes32 action_id, address confirmator) public view returns (bool) { // <---------- public
+    function isAlreadyConfirmed(bytes32 action_id, address confirmator) public view returns (bool) {// <---------- public
         if (_pending_actions[action_id].confirmations == type(uint256).max)
             return true;
         else
             return _pending_actions[action_id].is_confirmed_by[confirmator];
     }
 
-    function confirmationsCount(bytes32 action_id) public view returns (uint256) { // <---------------------------- public
+    function confirmationsCount(bytes32 action_id) public view returns (uint256) {// <---------------------------- public
         return _pending_actions[action_id].confirmations;
     }
 
@@ -40,7 +41,7 @@ contract DATAPACK { // used to incapsulate this data
     }
 
     function _markCompleted(bytes32 action_id) internal {
-        _pending_actions[action_id].confirmations = type(uint256).max; 
+        _pending_actions[action_id].confirmations = type(uint256).max;
     }
 }
 
@@ -59,6 +60,10 @@ contract BridgeSide is DATAPACK {
 
     bool private _side;
     bool private _robust_mode;
+    bool private _enabled;
+
+    uint256 private _min_per_tx = 0;
+    uint256 private _max_per_tx = type(uint256).max;
 
     struct Commit {
         uint256 r;
@@ -103,6 +108,11 @@ contract BridgeSide is DATAPACK {
         }
         return keccak256(abi.encodePacked(byte(0x19), EIP191_VERSION_E_HEADER, lengthAsText, _message));
     }
+    
+    modifier only_if_enabled() {
+        require(_enabled, "bridge is disabled");
+        _;
+    }
 
 // public methods
 
@@ -110,6 +120,22 @@ contract BridgeSide is DATAPACK {
         _owner = msg.sender;
         _validator_set = ValidatorSet(validator_set);
         _side = side;
+        _enabled = true;
+    }
+
+    function setMinPerTx(uint256 _min) public only_for_owner {
+        require(_min < _max_per_tx, "min>max");
+        _min_per_tx = _min;
+    }
+
+    function setMaxPerTx(uint256 _max) public only_for_owner {
+        require(_max > _min_per_tx, "min>max");
+        _max_per_tx = _max;
+    }
+
+    function _checkAmount(uint256 val) internal {
+        require(val > _min_per_tx, "too_low_value");
+        require(val < _max_per_tx, "too_high_value");
     }
 
     function changeValidatorSet(address addr) public only_for_owner {
@@ -117,13 +143,15 @@ contract BridgeSide is DATAPACK {
     }
 
     function addLiquidity() public payable only_for_owner {
-        require(!_side, "!right_side"); // used only on right (_side == False) side, where some initiall ethers come here through this method
+        require(!_side, "!right_side");
+        // used only on right (_side == False) side, where some initiall ethers come here through this method
         require(msg.value > 0, "!value>0");
         _liquidity += msg.value;
     }
-    
+
     function updateLiquidityLimit(uint256 newlimit) public only_for_owner {
-        require(_side, "!left_side"); // used only on left (_side == True) side, where is no ethers initially
+        require(_side, "!left_side");
+        // used only on left (_side == True) side, where is no ethers initially
         _opposite_side_balance = newlimit;
         _liquidity = newlimit;
     }
@@ -139,9 +167,18 @@ contract BridgeSide is DATAPACK {
     function getRobustModeMessage(address recipient, uint256 amount, bytes32 id) public returns (bytes memory) {
         return abi.encodePacked(recipient, amount, id);
     }
+    
+    function stopOperations() external only_for_owner {
+        _enabled = false;
+    }
+
+    function startOperations() external only_for_owner {
+        _enabled = true;
+    }
 
     function registerCommit(address recipient, uint256 amount, bytes32 id, uint256 r, uint256 s, uint8 v) external only_for_validators {
-        require(!_side, "!!_side"); // only on the right side
+        require(!_side, "!!_side");
+        // only on the right side
         require(_robust_mode, "!_robust_mode");
         commits[id].recipient = recipient;
         commits[id].amount = amount;
@@ -189,12 +226,13 @@ contract BridgeSide is DATAPACK {
 
     function commit(address recipient, uint256 amount, bytes32 id) public only_for_validators {
         require(!_robust_mode || !_side, "robust_enabled"); // block it only on left side if robust enabled
+        _checkAmount(amount);
         _confirmPendingAction(id, msg.sender); // may revert here in such cases: (id marked as completed) or (msg.sender already vote)
         if (confirmationsCount(id) >= _validator_set.getThreshold())
         {
             require(address(this).balance >= amount, "!balance>=amount");
             if (!payable(recipient).send(amount))
-                (new Victim()).sacrifice{value:amount}(payable(recipient));
+                (new Victim()).sacrifice{value : amount}(payable(recipient));
 
             _opposite_side_balance += amount;
 
@@ -202,13 +240,13 @@ contract BridgeSide is DATAPACK {
                 _liquidity += amount;
             else
                 _liquidity -= amount;
-            
+
             _markCompleted(id);
         }
     }
 
-    fallback() external payable {
-        require(msg.value > 0, "!value>0");
+    fallback() external payable only_if_enabled {
+        _checkAmount(msg.value);
 
         require(msg.value <= _opposite_side_balance, "!value<=osb");
         _opposite_side_balance -= msg.value;
