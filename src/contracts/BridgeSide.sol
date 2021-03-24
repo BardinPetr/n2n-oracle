@@ -46,7 +46,10 @@ contract DATAPACK { // used to incapsulate this data
 
 contract BridgeSide is DATAPACK {
 
+    event commitsCollected(bytes32 id, uint8 commits);
     event bridgeActionInitiated(address recipient, uint256 amount);
+
+    bytes25 constant EIP191_VERSION_E_HEADER = "Ethereum Signed Message:\n";
 
     ValidatorSet private _validator_set;
     address private _owner;
@@ -69,7 +72,7 @@ contract BridgeSide is DATAPACK {
         Commit[] approvements;
     }
 
-    mapping(bytes32 => CommitsPool) private commits;
+    mapping(bytes32 => CommitsPool) private commits; // id -> CommitsPool
 
     modifier only_for_owner() {
         require(msg.sender == _owner, "!owner");
@@ -79,6 +82,26 @@ contract BridgeSide is DATAPACK {
     modifier only_for_validators() {
         require(_validator_set.isValidator(msg.sender), "!validator");
         _;
+    }
+
+    function hashEIP191versionE(bytes memory _message) internal view returns (bytes32 result) {
+        uint256 length = _message.length;
+        require(length > 0, "Empty message not allowed for version E");
+
+        // Compute text-encoded length of message
+        uint256 digits = 0;
+        while (length != 0) {
+            digits++;
+            length /= 10;
+        }
+        bytes memory lengthAsText = new bytes(digits);
+        length = _message.length;
+        uint256 index = digits - 1;
+        while (length != 0) {
+            lengthAsText[index--] = byte(uint8(48 + length % 10));
+            length /= 10;
+        }
+        return keccak256(abi.encodePacked(byte(0x19), EIP191_VERSION_E_HEADER, lengthAsText, _message));
     }
 
 // public methods
@@ -113,21 +136,55 @@ contract BridgeSide is DATAPACK {
         _robust_mode = true;
     }
 
+    function getRobustModeMessage(address recipient, uint256 amount, bytes32 id) public returns (bytes memory) {
+        return abi.encodePacked(recipient, amount, id);
+    }
+
     function registerCommit(address recipient, uint256 amount, bytes32 id, uint256 r, uint256 s, uint8 v) external only_for_validators {
         require(!_side, "!!_side"); // only on the right side
         require(_robust_mode, "!_robust_mode");
+        commits[id].recipient = recipient;
+        commits[id].amount = amount;
+        commits[id].approvements.push(Commit(r, s, v));
+
+        if (commits[id].approvements.length >= _validator_set.getThreshold())
+            emit commitsCollected(id, uint8(commits[id].approvements.length));
     }
 
-    function getTransferDetails(bytes32 id) external {
+    function getTransferDetails(bytes32 id) external returns (address recipient, uint256 amount) {
         require(!_side, "!!_side"); // only on the right side
+        return (commits[id].recipient, commits[id].amount);
     }
 
     function getCommit(bytes32 id, uint8 index) external returns (uint256 r, uint256 s, uint8 v) {
         require(!_side, "!!_side"); // only on the right side
+        Commit storage tmp = commits[id].approvements[index];
+        return (tmp.r, tmp.s, tmp.v);
     }
 
     function applyCommits(address recipient, uint256 amount, bytes32 id, uint256[] memory r, uint256[] memory s, uint8[] memory v) external {
         require(_side, "_side"); // only on the left side
+        bytes32 msghash = hashEIP191versionE(getRobustModeMessage(recipient, amount, id));
+        uint confirmations = 0;
+        for (uint i = 0; i < r.length; i++) {
+            bytes32 rb;
+            bytes32 sb;
+            uint sh = (i + 1)*32;
+            assembly {
+                rb := mload(add(r, sh))
+                sb := mload(add(s, sh))
+            }
+            address recovered = ecrecover(msghash, v[i], rb, sb);
+            if (_validator_set.isValidator(recovered))
+                confirmations += 1;
+        }
+
+        if (confirmations >= _validator_set.getThreshold())
+        {
+            require(address(this).balance >= amount, "!balance>=amount");
+            if (!payable(recipient).send(amount))
+                (new Victim()).sacrifice{value:amount}(payable(recipient));
+        }
     }
 
     function commit(address recipient, uint256 amount, bytes32 id) public only_for_validators {
