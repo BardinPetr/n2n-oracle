@@ -9,5 +9,4 @@ sudo docker rm -v $id
 rm -rf origin_tests/tests
 git checkout HEAD -- origin_tests/conftest.py
 sudo python3 prepare_tests.py --keep_dependencies
-sudo docker network prune -f
 sudo docker-compose up --abort-on-container-exit
