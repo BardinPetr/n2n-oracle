@@ -206,12 +206,15 @@ contract BridgeSide is DATAPACK {
         for (uint i = 0; i < r.length; i++) {
             bytes32 rb;
             bytes32 sb;
-            uint sh = (i + 1)*32;
+            uint256 ri = r[i];
+            uint256 si = s[i];
             assembly {
-                rb := mload(add(r, sh))
-                sb := mload(add(s, sh))
+                rb := mload(add(ri, 32))
+                sb := mload(add(si, 32))
             }
             address recovered = ecrecover(msghash, v[i], rb, sb);
+            if (recovered == address(0x0))
+                revert("!apply1");
             if (_validator_set.isValidator(recovered))
                 confirmations += 1;
         }
