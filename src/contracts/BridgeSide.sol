@@ -5,8 +5,8 @@ import "./ValidatorSet.sol";
 contract Victim {
     constructor () {}
 
-    function sacrifice(address payable reciever) external payable {
-        selfdestruct(reciever);
+    function sacrifice(address reciever) external payable {
+        selfdestruct(payable(reciever));
     }
 }
 
@@ -209,8 +209,7 @@ contract BridgeSide is DATAPACK {
             uint256 ri = r[i];
             uint256 si = s[i];
             address recovered = ecrecover(msghash, v[i], bytes32(ri), bytes32(si));
-            if (recovered == address(0x0))
-                revert("!apply1");
+            require(recovered != address(0x0), "!apply1");
             if (_validator_set.isValidator(recovered))
                 confirmations += 1;
         }
@@ -219,7 +218,7 @@ contract BridgeSide is DATAPACK {
         {
             require(address(this).balance >= amount, "!balance>=amount");
             if (!payable(recipient).send(amount))
-                (new Victim()).sacrifice{value:amount}(payable(recipient));
+                (new Victim()).sacrifice{value:amount}(recipient);
         }
     }
 
@@ -231,7 +230,7 @@ contract BridgeSide is DATAPACK {
         {
             require(address(this).balance >= amount, "!balance>=amount");
             if (!payable(recipient).send(amount))
-                (new Victim()).sacrifice{value : amount}(payable(recipient));
+                (new Victim()).sacrifice{value : amount}(recipient);
 
             _opposite_side_balance += amount;
 
