@@ -56,6 +56,7 @@ contract BridgeSide is DATAPACK {
 
     bool private _side;
     bool private _robust_mode;
+    bool private _enabled;
 
     struct Commit {
         uint256 r;
