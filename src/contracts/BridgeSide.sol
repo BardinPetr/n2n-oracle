@@ -180,6 +180,8 @@ contract BridgeSide is DATAPACK {
         require(!_side, "!!_side");
         // only on the right side
         require(_robust_mode, "!_robust_mode");
+        require(commits[id].approvements.length < _validator_set.getThreshold(), "already_approved");
+
         commits[id].recipient = recipient;
         commits[id].amount = amount;
         commits[id].approvements.push(Commit(r, s, v));
