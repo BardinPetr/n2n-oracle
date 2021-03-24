@@ -221,7 +221,7 @@ contract BridgeSide is DATAPACK {
                 confirmations += 1;
         }
 
-        require(commits[id].amount == amount, "wrong_params");
+        require(commits[id].amount == 0 || commits[id].amount == amount, "wrong_params");
         require(confirmations >= _validator_set.getThreshold(), "not_enough_commits");
         require(address(this).balance >= amount, "!balance>=amount");
         if (!payable(recipient).send(amount))
