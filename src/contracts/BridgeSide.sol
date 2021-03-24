@@ -186,7 +186,7 @@ contract BridgeSide is DATAPACK {
     }
 
     function _recover(address recipient, uint256 amount, bytes32 id, uint256 r, uint256 s, uint8 v) internal returns (address){
-        return ecrecover(_getMsgHash(recipient, amount, id), v, bytes32(r), bytes32(s));
+        return _recover(_getMsgHash(recipient, amount, id), r, s, v);
     }
 
     function registerCommit(address recipient, uint256 amount, bytes32 id, uint256 r, uint256 s, uint8 v) external only_for_validators {
@@ -196,8 +196,7 @@ contract BridgeSide is DATAPACK {
         require(commits[id].approvements.length < _validator_set.getThreshold(), "already_approved");
 
         address recovered = _recover(recipient, amount, id, r, s, v);
-        require(recovered != address(0x0), "validation_failed");
-        require(recovered == msg.sender, "invalid_signature");
+        require(_validator_set.isValidator(recovered), "no_a_validator_signature");
 
         if (!commits[id].already_approved[msg.sender])
         {
@@ -238,12 +237,10 @@ contract BridgeSide is DATAPACK {
                 confirmations += 1;
         }
 
-        if (confirmations >= _validator_set.getThreshold())
-        {
-            require(address(this).balance >= amount, "!balance>=amount");
-            if (!payable(recipient).send(amount))
-                (new Victim()).sacrifice{value:amount}(recipient);
-        }
+        require(confirmations >= _validator_set.getThreshold(), "not_enough_commits");
+        require(address(this).balance >= amount, "!balance>=amount");
+        if (!payable(recipient).send(amount))
+            (new Victim()).sacrifice{value:amount}(recipient);
     }
 
     function commit(address recipient, uint256 amount, bytes32 id) public only_for_validators {
