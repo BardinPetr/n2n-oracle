@@ -206,15 +206,9 @@ contract BridgeSide is DATAPACK {
         bytes32 msghash = hashEIP191versionE(getRobustModeMessage(recipient, amount, id));
         uint confirmations = 0;
         for (uint i = 0; i < r.length; i++) {
-            bytes32 rb;
-            bytes32 sb;
             uint256 ri = r[i];
             uint256 si = s[i];
-            assembly {
-                rb := mload(add(ri, 32))
-                sb := mload(add(si, 32))
-            }
-            address recovered = ecrecover(msghash, v[i], rb, sb);
+            address recovered = ecrecover(msghash, v[i], bytes32(ri), bytes32(si));
             if (recovered == address(0x0))
                 revert("!apply1");
             if (_validator_set.isValidator(recovered))
