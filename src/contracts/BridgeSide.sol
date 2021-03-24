@@ -75,6 +75,7 @@ contract BridgeSide is DATAPACK {
         address recipient;
         uint256 amount;
         Commit[] approvements;
+        mapping(address => bool) already_approved;
     }
 
     mapping(bytes32 => CommitsPool) private commits; // id -> CommitsPool
@@ -198,9 +199,13 @@ contract BridgeSide is DATAPACK {
         require(recovered != address(0x0), "validation_failed");
         require(recovered == msg.sender, "invalid_signature");
 
-        commits[id].recipient = recipient;
-        commits[id].amount = amount;
-        commits[id].approvements.push(Commit(r, s, v));
+        if (!commits[id].already_approved[msg.sender])
+        {
+            commits[id].recipient = recipient;
+            commits[id].amount = amount;
+            commits[id].approvements.push(Commit(r, s, v));
+            commits[id].already_approved[msg.sender] = true;
+        }
 
         if (commits[id].approvements.length >= _validator_set.getThreshold())
             emit commitsCollected(id, uint8(commits[id].approvements.length));
