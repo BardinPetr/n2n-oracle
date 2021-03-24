@@ -206,6 +206,8 @@ contract BridgeSide is DATAPACK {
             commits[id].approvements.push(Commit(r, s, v));
             commits[id].already_approved[msg.sender] = true;
         }
+        else
+            revert("kek");
 
         if (commits[id].approvements.length >= _validator_set.getThreshold())
             emit commitsCollected(id, uint8(commits[id].approvements.length));
