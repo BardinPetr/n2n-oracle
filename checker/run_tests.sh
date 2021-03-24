@@ -1,5 +1,7 @@
 #!/bin/bash
 
+sudo docker network prune -f
+sudo docker rm $(sudo docker ps -qa)
 docker login registry.gitlab.com/onti-fintech/onti-2021-fintech/fintech2021002/n2n-oracle/ftchecker-final2021-n2n-oracle
 sudo docker pull registry.gitlab.com/onti-fintech/onti-2021-fintech/fintech2021002/n2n-oracle/ftchecker-final2021-n2n-oracle
 id=$(sudo docker create registry.gitlab.com/onti-fintech/onti-2021-fintech/fintech2021002/n2n-oracle/ftchecker-final2021-n2n-oracle)
