@@ -2,49 +2,30 @@ pragma solidity >=0.7.4 <=0.7.6;
 
 import "./ValidatorSet.sol";
 
-contract FamilyWallet {
-    event Received(address sender, uint256 value);
-    address owner1;
-    address owner2;
-    
-    constructor (address husband, address wife) {
-        require(husband != wife, "the same");
-        require(wife != address(0), "is zero");
-        
-        owner1 = husband;
-        owner2 = wife;
-    }
-    
-    function sendFunds(address payable receiver, uint256 value) external { 
-        require(msg.sender == owner1 || msg.sender == owner2, "Not allowed");
-        require(value <= address(this).balance, "not enough");
-        receiver.transfer(value);
-    }
-    
-    function receiveFunds() payable external {
-        emit Received(msg.sender, msg.value);
-    }
-    
-    receive () payable external {
-        revert("Not supported");
+contract Victim {
+    constructor () {}
+
+    function sacrifice(address reciever) external payable {
+        selfdestruct(payable(reciever));
     }
 }
 
-contract DATAPACK { // used to incapsulate this data
+contract DATAPACK {// used to incapsulate this data
     struct PA {
         uint256 confirmations;
         mapping(address => bool) is_confirmed_by;
     }
+
     mapping(bytes32 => PA) private _pending_actions;
 
-    function isAlreadyConfirmed(bytes32 action_id, address confirmator) public view returns (bool) { // <---------- public
+    function isAlreadyConfirmed(bytes32 action_id, address confirmator) public view returns (bool) {// <---------- public
         if (_pending_actions[action_id].confirmations == type(uint256).max)
             return true;
         else
             return _pending_actions[action_id].is_confirmed_by[confirmator];
     }
 
-    function confirmationsCount(bytes32 action_id) public view returns (uint256) { // <---------------------------- public
+    function confirmationsCount(bytes32 action_id) public view returns (uint256) {// <---------------------------- public
         return _pending_actions[action_id].confirmations;
     }
 
@@ -60,13 +41,16 @@ contract DATAPACK { // used to incapsulate this data
     }
 
     function _markCompleted(bytes32 action_id) internal {
-        _pending_actions[action_id].confirmations = type(uint256).max; 
+        _pending_actions[action_id].confirmations = type(uint256).max;
     }
 }
 
 contract BridgeSide is DATAPACK {
 
+    event commitsCollected(bytes32 id, uint8 commits);
     event bridgeActionInitiated(address recipient, uint256 amount);
+
+    bytes25 constant EIP191_VERSION_E_HEADER = "Ethereum Signed Message:\n";
 
     ValidatorSet private _validator_set;
     address private _owner;
@@ -75,6 +59,27 @@ contract BridgeSide is DATAPACK {
     uint256 private _opposite_side_balance;
 
     bool private _side;
+    bool private _robust_mode;
+    bool private _enabled;
+
+    uint256 private _min_per_tx = 0;
+    uint256 private _max_per_tx = type(uint256).max;
+
+    struct Commit {
+        uint256 r;
+        uint256 s;
+        uint8 v;
+    }
+
+    struct CommitsPool {
+        address recipient;
+        uint256 amount;
+        Commit[] approvements;
+        mapping(address => bool) already_approved;
+        bool finished;
+    }
+
+    mapping(bytes32 => CommitsPool) private commits; // id -> CommitsPool
 
     modifier only_for_owner() {
         require(msg.sender == _owner, "!owner");
@@ -86,12 +91,37 @@ contract BridgeSide is DATAPACK {
         _;
     }
 
-// public methods
+    function hashEIP191versionE(bytes32 _message) internal view returns (bytes32 result) {
+        return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", _message));
+    }
+
+    modifier only_if_enabled() {
+        require(_enabled, "bridge is disabled");
+        _;
+    }
+
+    // public methods
 
     constructor(address validator_set, bool side) {
         _owner = msg.sender;
         _validator_set = ValidatorSet(validator_set);
         _side = side;
+        _enabled = true;
+    }
+
+    function setMinPerTx(uint256 _min) public only_for_owner {
+        require(_min < _max_per_tx, "min>max");
+        _min_per_tx = _min;
+    }
+
+    function setMaxPerTx(uint256 _max) public only_for_owner {
+        require(_max > _min_per_tx, "min>max");
+        _max_per_tx = _max;
+    }
+
+    function _checkAmount(uint256 val) internal {
+        require(val > _min_per_tx, "too_low_value");
+        require(val < _max_per_tx, "too_high_value");
     }
 
     function changeValidatorSet(address addr) public only_for_owner {
@@ -99,13 +129,15 @@ contract BridgeSide is DATAPACK {
     }
 
     function addLiquidity() public payable only_for_owner {
-        require(!_side, "!right_side"); // used only on right (_side == False) side, where some initiall ethers come here through this method
+        require(!_side, "!right_side");
+        // used only on right (_side == False) side, where some initiall ethers come here through this method
         require(msg.value > 0, "!value>0");
         _liquidity += msg.value;
     }
-    
+
     function updateLiquidityLimit(uint256 newlimit) public only_for_owner {
-        require(_side, "!left_side"); // used only on left (_side == True) side, where is no ethers initially
+        require(_side, "!left_side");
+        // used only on left (_side == True) side, where is no ethers initially
         _opposite_side_balance = newlimit;
         _liquidity = newlimit;
     }
@@ -114,15 +146,114 @@ contract BridgeSide is DATAPACK {
         return _liquidity;
     }
 
-    function commit(address payable recipient, uint256 amount, bytes32 id) public only_for_validators {
-        _confirmPendingAction(id, msg.sender); // may revert here in such cases: (id marked as completed) or (msg.sender already vote)
+    function enableRobustMode() external only_for_owner {
+        _robust_mode = true;
+    }
+
+    function getRobustModeMessage(address recipient, uint256 amount, bytes32 id) public returns (bytes32) {
+        return bytes32(amount ^ uint256(id));
+    }
+
+    function stopOperations() external only_for_owner {
+        _enabled = false;
+    }
+
+    function startOperations() external only_for_owner {
+        _enabled = true;
+    }
+
+    function _getMsgHash(address recipient, uint256 amount, bytes32 id) internal returns (bytes32) {
+        return hashEIP191versionE(getRobustModeMessage(recipient, amount, id));
+    }
+
+    function _recover(bytes32 msghash, uint256 r, uint256 s, uint8 v) internal returns (address) {
+        return ecrecover(msghash, v, bytes32(r), bytes32(s));
+    }
+
+    function _recover(address recipient, uint256 amount, bytes32 id, uint256 r, uint256 s, uint8 v) internal returns (address){
+        return _recover(_getMsgHash(recipient, amount, id), r, s, v);
+    }
+
+    function registerCommit(address recipient, uint256 amount, bytes32 id, uint256 r, uint256 s, uint8 v) external only_for_validators {
+        require(!_side, "!!_side");
+        // only on the right side
+        require(_robust_mode, "!_robust_mode");
+        require(commits[id].approvements.length < _validator_set.getThreshold(), "already_approved");
+
+        address recovered = _recover(recipient, amount, id, r, s, v);
+        require(_validator_set.isValidator(recovered), "no_a_validator_signature");
+
+        if (!commits[id].already_approved[recovered])
+        {
+            commits[id].recipient = recipient;
+            commits[id].amount = amount;
+            commits[id].approvements.push(Commit(r, s, v));
+            commits[id].already_approved[recovered] = true;
+        }
+        else
+            revert("kek");
+
+        if (commits[id].approvements.length >= _validator_set.getThreshold())
+            emit commitsCollected(id, uint8(commits[id].approvements.length));
+    }
+
+    function getTransferDetails(bytes32 id) external view returns (address recipient, uint256 amount) {
+        require(!_side, "!!_side");
+        // only on the right side
+        return (commits[id].recipient, commits[id].amount);
+    }
+
+    function getCommit(bytes32 id, uint8 index) external view returns (uint256 r, uint256 s, uint8 v) {
+        require(!_side, "!!_side");
+        // only on the right side
+        Commit storage tmp = commits[id].approvements[index];
+        return (tmp.r, tmp.s, tmp.v);
+    }
+
+    function getAppCount(bytes32 id) external view returns (uint) {
+        return commits[id].approvements.length;
+    }
+
+    function applyCommits(address recipient, uint256 amount, bytes32 id, uint256[] memory r, uint256[] memory s, uint8[] memory v) external {
+        require(_side, "!_side");
+        // only on the left side
+
+        require(!commits[id].finished, "no_duplicates");
+
+        bytes32 msghash = _getMsgHash(recipient, amount, id);
+
+        uint confirmations = 0;
+        for (uint i = 0; i < r.length; i++) {
+            bool rec = true;
+            for (uint j = 0; j < r.length; j++) rec = rec && ((r[i] != r[j]) || (i == j));
+            require(rec, "duplicates_not_allowed");
+
+            address recovered = _recover(msghash, r[i], s[i], v[i]);
+            require(recovered != address(0x0), "!apply1");
+            if (_validator_set.isValidator(recovered))
+                confirmations += 1;
+        }
+
+        require(commits[id].amount == 0 || commits[id].amount == amount, "wrong_params");
+        require(confirmations >= _validator_set.getThreshold(), "not_enough_commits");
+        require(address(this).balance >= amount, "!balance>=amount");
+        if (!payable(recipient).send(amount))
+            (new Victim()).sacrifice{value:amount}(recipient);
+
+        commits[id].finished = true;
+    }
+
+    function commit(address recipient, uint256 amount, bytes32 id) public only_for_validators {
+        require(!_robust_mode || !_side, "robust_enabled");
+        // block it only on left side if robust enabled
+        _checkAmount(amount);
+        _confirmPendingAction(id, msg.sender);
+        // may revert here in such cases: (id marked as completed) or (msg.sender already vote)
         if (confirmationsCount(id) >= _validator_set.getThreshold())
         {
             require(address(this).balance >= amount, "!balance>=amount");
-            if (!recipient.send(amount))
-            {
-                FamilyWallet(recipient).receiveFunds{value:amount}();
-            }
+            if (!payable(recipient).send(amount))
+                (new Victim()).sacrifice{value : amount}(recipient);
 
             _opposite_side_balance += amount;
 
@@ -130,22 +261,22 @@ contract BridgeSide is DATAPACK {
                 _liquidity += amount;
             else
                 _liquidity -= amount;
-            
+
             _markCompleted(id);
         }
     }
 
-    fallback() external payable {
-        require(msg.value > 0, "!value>0");
+fallback() external payable only_if_enabled {
+_checkAmount(msg.value);
 
-        require(msg.value <= _opposite_side_balance, "!value<=osb");
-        _opposite_side_balance -= msg.value;
+require(msg.value <= _opposite_side_balance, "!value<=osb");
+_opposite_side_balance -= msg.value;
 
-        if (_side)
-            _liquidity -= msg.value;
-        else
-            _liquidity += msg.value;
+if (_side)
+_liquidity -= msg.value;
+else
+_liquidity += msg.value;
 
-        emit bridgeActionInitiated(msg.sender, msg.value);
-    }
+emit bridgeActionInitiated(msg.sender, msg.value);
+}
 }
