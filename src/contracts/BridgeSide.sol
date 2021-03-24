@@ -211,15 +211,19 @@ contract BridgeSide is DATAPACK {
     }
 
     function getCommits(bytes32 id) external view returns (uint256[] memory r, uint256[] memory s, uint8[] memory v) {
-        uint256[] memory rm;
-        uint256[] memory sm;
-        uint8[] memory vm;
-        for (uint i = 0; i < commits[id].approvements.lenght; i++) {
-            rm.push(commits[id].approvements[i].r);
-            sm.push(commits[id].approvements[i].s);
-            vm.push(commits[id].approvements[i].v);
+        uint256[] memory rm = new uint256[commits[id].approvements.length];
+        uint256[] memory sm = new uint256[commits[id].approvements.length];
+        uint8[] memory vm = new uint256[commits[id].approvements.length];
+        for (uint i = 0; i < commits[id].approvements.length; i++) {
+            rm[i] = commits[id].approvements[i].r;
+            sm[i] = (commits[id].approvements[i].s);
+            vm[i] = (commits[id].approvements[i].v);
         }
         return (rm, sm, vm);
+    }
+
+    function getAppCount(bytes32 id) external view returns (uint) {
+        return commits[id].approvements.length;
     }
 
     function applyCommits(address recipient, uint256 amount, bytes32 id, uint256[] memory r, uint256[] memory s, uint8[] memory v) external {
