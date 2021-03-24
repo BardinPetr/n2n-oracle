@@ -90,24 +90,8 @@ contract BridgeSide is DATAPACK {
         _;
     }
 
-    function hashEIP191versionE(bytes memory _message) internal view returns (bytes32 result) {
-        uint256 length = _message.length;
-        require(length > 0, "Empty message not allowed for version E");
-
-        // Compute text-encoded length of message
-        uint256 digits = 0;
-        while (length != 0) {
-            digits++;
-            length /= 10;
-        }
-        bytes memory lengthAsText = new bytes(digits);
-        length = _message.length;
-        uint256 index = digits - 1;
-        while (length != 0) {
-            lengthAsText[index--] = byte(uint8(48 + length % 10));
-            length /= 10;
-        }
-        return keccak256(abi.encodePacked(byte(0x19), EIP191_VERSION_E_HEADER, lengthAsText, _message));
+    function hashEIP191versionE(bytes32 _message) internal view returns (bytes32 result) {
+        return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", _message));
     }
 
     modifier only_if_enabled() {
@@ -165,8 +149,8 @@ contract BridgeSide is DATAPACK {
         _robust_mode = true;
     }
 
-    function getRobustModeMessage(address recipient, uint256 amount, bytes32 id) public returns (bytes memory) {
-        return abi.encodePacked(recipient, amount, id);
+    function getRobustModeMessage(address recipient, uint256 amount, bytes32 id) public returns (bytes32) {
+        return id;
     }
 
     function stopOperations() external only_for_owner {
